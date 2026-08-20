@@ -1,0 +1,29 @@
+{
+  "leagueName": "10-Team Standard PPR",
+  "teams": 10,
+  "season": 2026,
+  "scoring": {
+    "type": "PPR",
+    "rules": {
+      "pass_yd": 0.04,
+      "pass_td": 4,
+      "interception": -2,
+      "rush_yd": 0.1,
+      "rush_td": 6,
+      "reception": 1.0,
+      "rec_yd": 0.1,
+      "rec_td": 6,
+      "fumble_lost": -2,
+      "two_pt": 2
+    }
+  },
+  "roster": {
+    "starters": { "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1 },
+    "bench": 6,
+    "ir_slots": 1
+  },
+  "waiver": { "type": "FAAB", "budget": 100, "reset": "weekly" },
+  "trades": { "review": "league_vote", "veto_votes": 4, "reject_days": 2 },
+  "keepers": { "count": 0 },
+  "playoff_teams": 4
+}

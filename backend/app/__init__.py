@@ -1,0 +1,1 @@
+"""GridironIQ backend application package."""

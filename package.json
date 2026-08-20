@@ -1,0 +1,15 @@
+{
+  "name": "gridiron-iq",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Championship-grade fantasy football platform (monorepo root).",
+  "scripts": {
+    "format": "prettier --write \"frontend/src/**/*.{ts,tsx,css}\" \"**/*.{json,md,yml}\"",
+    "format:check": "prettier --check \"frontend/src/**/*.{ts,tsx,css}\"",
+    "skills": "bash scripts/install-skills.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.6"
+  }
+}

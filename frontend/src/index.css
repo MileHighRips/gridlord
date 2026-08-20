@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 text-chalk font-sans antialiased;
+  background-image:
+    linear-gradient(rgba(35, 43, 58, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(35, 43, 58, 0.22) 1px, transparent 1px);
+  background-size: 44px 44px;
+  background-attachment: fixed;
+}
+
+@layer components {
+  .card {
+    @apply border-ink-500/70 bg-ink-850/80 rounded-xl border p-4 shadow-lg backdrop-blur-sm;
+  }
+
+  .btn {
+    @apply bg-gold-400 text-ink-950 hover:bg-gold-300 focus:ring-gold-400/60 inline-flex items-center gap-2 rounded-lg px-4 py-2 font-semibold transition focus:outline-none focus:ring-2 disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply border-ink-500 text-chalk hover:border-gold-400/60 hover:bg-ink-700 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition;
+  }
+
+  .pill {
+    @apply rounded-full px-2 py-0.5 text-xs font-semibold;
+  }
+
+  .input {
+    @apply border-ink-500 bg-ink-900 text-chalk focus:border-gold-400 focus:ring-gold-400/40 rounded-lg border px-3 py-1.5 text-sm focus:outline-none focus:ring-1;
+  }
+
+  .eyebrow {
+    @apply text-muted font-mono text-[11px] uppercase tracking-[0.2em];
+  }
+
+  .stat {
+    @apply font-mono tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-ink-500 rounded-full;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

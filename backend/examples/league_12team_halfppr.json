@@ -1,0 +1,37 @@
+{
+  "leagueName": "12-Team Half-PPR",
+  "teams": 12,
+  "season": 2026,
+  "scoring": {
+    "type": "Half-PPR",
+    "rules": {
+      "pass_yd": 0.04,
+      "pass_td": 4,
+      "interception": -2,
+      "rush_yd": 0.1,
+      "rush_td": 6,
+      "reception": 0.5,
+      "rec_yd": 0.1,
+      "rec_td": 6,
+      "fumble_lost": -2,
+      "two_pt": 2
+    }
+  },
+  "roster": {
+    "starters": {
+      "QB": 1,
+      "RB": 2,
+      "WR": 3,
+      "TE": 1,
+      "FLEX": 1,
+      "K": 1,
+      "DEF": 1
+    },
+    "bench": 7,
+    "ir_slots": 2
+  },
+  "waiver": { "type": "rolling", "budget": 0, "reset": "weekly" },
+  "trades": { "review": "commissioner", "reject_days": 1 },
+  "keepers": { "count": 1, "cost_increase": "+1_pick" },
+  "playoff_teams": 6
+}

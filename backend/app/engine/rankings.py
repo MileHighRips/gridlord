@@ -21,8 +21,10 @@ DEFAULT_REPLACEMENT_RANK = {
     "DEF": 14,
 }
 
-# ECR (expert consensus) is a scoring-agnostic market prior. It gets a small,
-# clamped influence so it can break ties without overriding league-scoring VORP.
+# ECR (expert consensus) is a scoring-agnostic market prior. It sets the order
+# *within* a position; scoring-driven VORP sets how high the position sits.
+# MARKET_WITHIN_POS = how much to trust expert order within a position (0..1).
+MARKET_WITHIN_POS = 0.7
 ECR_BLEND_WEIGHT = 0.35
 ECR_CLAMP = 1.25
 
@@ -150,36 +152,27 @@ def rank_players(
     for e, tier in zip(enriched, tiers):
         e["tier"] = tier
 
-    # Blend Sleeper VORP with FantasyPros expert consensus (ECR).
-    #
-    # VORP fully reflects the league's scoring, so it MUST dominate — otherwise
-    # a scoring change (e.g. 50-pt passing TDs) wouldn't move the board. ECR is a
-    # scoring-agnostic market prior, so it only gets a small, *clamped* nudge that
-    # can break ties among similar players but never override a real VORP gap.
-    import numpy as _np
+    # --- Ensemble ordering -------------------------------------------------
+    # Scoring-driven VORP decides how valuable each position is (so heavy passing
+    # scoring lifts QBs as a group). Expert consensus (ECR) decides the order
+    # *within* a position, so the marquee players the market/analysts rank highest
+    # (e.g. Allen, Lamar) sit atop their position instead of raw-projection noise.
+    from collections import defaultdict as _dd
 
-    # Scale VORP z-scores by the spread of *startable* players (VORP > 0) so the
-    # z-units are meaningful rather than dominated by replacement-level noise.
-    startable = [e["vorp"] for e in enriched if e["vorp"] > 0] or [
-        e["vorp"] for e in enriched
-    ]
-    v_mu = float(_np.mean(startable))
-    v_sd = float(_np.std(startable) or 1.0)
-    ecr_vals = [e["p"].ecr for e in enriched if e["p"].ecr]
-    if ecr_vals:
-        neg = _np.array([-v for v in ecr_vals])
-        e_mu, e_sd = float(neg.mean()), float(neg.std() or 1.0)
-    else:
-        e_mu = e_sd = 0.0
+    by_pos: dict[str, list] = _dd(list)
     for e in enriched:
-        vz = (e["vorp"] - v_mu) / v_sd
-        p = e["p"]
-        if p.ecr and e_sd:
-            ez = ((-p.ecr) - e_mu) / e_sd
-            ez = max(-ECR_CLAMP, min(ECR_CLAMP, ez))
-            e["blended"] = vz + ECR_BLEND_WEIGHT * ez
-        else:
-            e["blended"] = vz  # no expert coverage -> projection only
+        by_pos[e["p"].position].append(e)
+
+    for _pos, group in by_pos.items():
+        vorps_desc = sorted((g["vorp"] for g in group), reverse=True)
+        have_ecr = sorted((g for g in group if g["p"].ecr), key=lambda g: g["p"].ecr)
+        no_ecr = sorted((g for g in group if not g["p"].ecr), key=lambda g: -g["vorp"])
+        market_order = have_ecr + no_ecr
+        for i, g in enumerate(market_order):
+            market_vorp = vorps_desc[i]  # value of the i-th best slot at this position
+            w = MARKET_WITHIN_POS if g["p"].ecr else 0.0
+            g["blended"] = (1.0 - w) * g["vorp"] + w * market_vorp
+
     enriched.sort(key=lambda e: -e["blended"])
 
     ranked: list[RankedPlayer] = []

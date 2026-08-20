@@ -113,7 +113,7 @@ export default function DraftRoom() {
           <button className="btn-ghost" onClick={undo} disabled={!picks.length}>
             ↩ Undo pick
           </button>
-          <div className="ml-auto text-sm text-slate-400">
+          <div className="w-full text-sm text-slate-400 lg:ml-auto lg:w-auto">
             Pick <b className="text-slate-100">{nextOverall}</b> · Round{' '}
             {Math.floor((nextOverall - 1) / numTeams) + 1} · Slot{' '}
             <b className={slotOnClock === mySlot ? 'text-gridiron-400' : ''}>
@@ -152,9 +152,9 @@ export default function DraftRoom() {
                   <th className="p-2">#</th>
                   <th className="p-2">Player</th>
                   <th className="p-2">Pos</th>
-                  <th className="p-2 text-right">Proj</th>
-                  <th className="p-2 text-right">VORP</th>
-                  <th className="p-2 text-right">ADP</th>
+                  <th className="hidden p-2 text-right sm:table-cell">Proj</th>
+                  <th className="hidden p-2 text-right sm:table-cell">VORP</th>
+                  <th className="hidden p-2 text-right sm:table-cell">ADP</th>
                   <th className="p-2"></th>
                 </tr>
               </thead>
@@ -168,15 +168,17 @@ export default function DraftRoom() {
                     <td className="p-2">
                       <PositionBadge pos={p.position} />
                     </td>
-                    <td className="p-2 text-right">{p.proj_points.toFixed(1)}</td>
-                    <td className="text-gridiron-400 p-2 text-right">
+                    <td className="hidden p-2 text-right sm:table-cell">
+                      {p.proj_points.toFixed(1)}
+                    </td>
+                    <td className="text-gridiron-400 hidden p-2 text-right sm:table-cell">
                       {p.vorp.toFixed(1)}
                     </td>
-                    <td className="p-2 text-right text-slate-400">
+                    <td className="hidden p-2 text-right text-slate-400 sm:table-cell">
                       {p.adp?.toFixed(0) ?? '—'}
                     </td>
                     <td className="p-2 text-right">
-                      <button className="btn-ghost" onClick={() => recordPick(p)}>
+                      <button className="btn" onClick={() => recordPick(p)}>
                         Draft
                       </button>
                     </td>

@@ -21,6 +21,11 @@ DEFAULT_REPLACEMENT_RANK = {
     "DEF": 14,
 }
 
+# ECR (expert consensus) is a scoring-agnostic market prior. It gets a small,
+# clamped influence so it can break ties without overriding league-scoring VORP.
+ECR_BLEND_WEIGHT = 0.35
+ECR_CLAMP = 1.25
+
 
 @dataclass
 class PlayerProjection:
@@ -145,11 +150,21 @@ def rank_players(
     for e, tier in zip(enriched, tiers):
         e["tier"] = tier
 
-    # Blend Sleeper VORP with FantasyPros expert consensus (ECR) into one order.
+    # Blend Sleeper VORP with FantasyPros expert consensus (ECR).
+    #
+    # VORP fully reflects the league's scoring, so it MUST dominate — otherwise
+    # a scoring change (e.g. 50-pt passing TDs) wouldn't move the board. ECR is a
+    # scoring-agnostic market prior, so it only gets a small, *clamped* nudge that
+    # can break ties among similar players but never override a real VORP gap.
     import numpy as _np
 
-    vorp_arr = _np.array([e["vorp"] for e in enriched], dtype=float)
-    v_mu, v_sd = float(vorp_arr.mean()), float(vorp_arr.std() or 1.0)
+    # Scale VORP z-scores by the spread of *startable* players (VORP > 0) so the
+    # z-units are meaningful rather than dominated by replacement-level noise.
+    startable = [e["vorp"] for e in enriched if e["vorp"] > 0] or [
+        e["vorp"] for e in enriched
+    ]
+    v_mu = float(_np.mean(startable))
+    v_sd = float(_np.std(startable) or 1.0)
     ecr_vals = [e["p"].ecr for e in enriched if e["p"].ecr]
     if ecr_vals:
         neg = _np.array([-v for v in ecr_vals])
@@ -161,7 +176,8 @@ def rank_players(
         p = e["p"]
         if p.ecr and e_sd:
             ez = ((-p.ecr) - e_mu) / e_sd
-            e["blended"] = 0.6 * vz + 0.4 * ez
+            ez = max(-ECR_CLAMP, min(ECR_CLAMP, ez))
+            e["blended"] = vz + ECR_BLEND_WEIGHT * ez
         else:
             e["blended"] = vz  # no expert coverage -> projection only
     enriched.sort(key=lambda e: -e["blended"])

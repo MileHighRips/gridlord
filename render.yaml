@@ -1,0 +1,33 @@
+# One-click backend deploy for GRIDLORD (Render Blueprint).
+# In Render: New → Blueprint → point at this repo. It provisions a free Postgres
+# and a web service, seeds live data on boot, and exposes the API.
+#
+# After it deploys, copy the web service URL and set it as the `API_BASE` repo
+# variable (Settings → Secrets and variables → Actions → Variables) so the
+# GitHub Pages frontend + phone PWA talk to it.
+services:
+  - type: web
+    name: gridlord-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Seed live data on boot, then serve. `|| true` keeps the service up even if
+    # an upstream source is briefly unavailable.
+    startCommand: python -m app.ingest || true; uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gridlord-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: '*'
+      - key: PYTHON_VERSION
+        value: '3.12.10'
+
+databases:
+  - name: gridlord-db
+    plan: free

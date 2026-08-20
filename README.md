@@ -40,6 +40,25 @@ deploys the frontend on every push to `main`.
 > GitHub Pages is static — host the FastAPI backend separately (Render / Railway /
 > Fly.io) and point `API_BASE` at it. See [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
+## 🚀 One-click backend deploy (Render)
+
+The frontend needs a live backend for data. The fastest path is
+[render.yaml](render.yaml):
+
+1. In [Render](https://render.com): **New → Blueprint** → select this repo.
+   It provisions a free Postgres + web service, seeds live data on boot, and
+   serves the API with a `/health` check.
+2. Copy the deployed web service URL (e.g. `https://gridlord-api.onrender.com`).
+3. In GitHub: **Settings → Secrets and variables → Actions → Variables** → set
+   `API_BASE` to that URL, then re-run the **Deploy frontend to GitHub Pages**
+   workflow (Actions tab → Run workflow).
+
+Now the Pages site and the installed phone PWA both pull live data. CORS is open
+by default (`ALLOWED_ORIGINS=*`); tighten it to your Pages origin for production.
+
+Railway / Fly.io work too — use `backend/Dockerfile`, set `DATABASE_URL` to a
+Postgres instance, and run `python -m app.ingest` once to seed.
+
 ---
 
 ## Architecture

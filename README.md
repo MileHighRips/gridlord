@@ -29,6 +29,8 @@ Pre-seeded with **"The League"** — a real 14-team H2H PPR league (bonus yardag
    Data still needs the backend — set `VITE_API_BASE` to your backend URL.
 
 ## 🌐 Open as a website (GitHub Pages)
+Live app: https://milehighrips.github.io/gridlord/
+
 A workflow ([.github/workflows/pages.yml](.github/workflows/pages.yml)) builds and
 deploys the frontend on every push to `main`.
 1. **Settings → Pages → Source: GitHub Actions.**

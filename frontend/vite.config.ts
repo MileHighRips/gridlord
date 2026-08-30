@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages project sites must serve assets from the repo subpath.
-export default defineConfig({
-  base: process.env.VITE_BASE ?? '/gridlord/',
+export default defineConfig(({ mode }) => ({
+  // Local dev should load from the site root; GitHub Pages production builds use the repo subpath.
+  base: process.env.VITE_BASE ?? (mode === 'production' ? '/gridlord/' : '/'),
   plugins: [react()],
   server: {
     host: '0.0.0.0',
@@ -15,4 +15,4 @@ export default defineConfig({
     port: 4173,
     strictPort: true,
   },
-});
+}));

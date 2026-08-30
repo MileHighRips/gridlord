@@ -3,10 +3,78 @@ import { api, LeagueSettings as LS } from '../api/client';
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPERFLEX', 'K', 'DEF'];
 
+const VINNY_LEAGUE_PRESET: LS = {
+  leagueName: '2026 League',
+  teams: 12,
+  season: 2026,
+  scoring: {
+    type: 'PPR',
+    rules: {
+      pass_yd: 0.04,
+      pass_td: 4,
+      interception: -2,
+      rush_yd: 0.1,
+      rush_td: 6,
+      reception: 1,
+      rec_yd: 0.1,
+      rec_td: 6,
+      two_pt: 2,
+      fumble_lost: -2,
+      off_fum_ret_td: 6,
+      fg_0_19: 3,
+      fg_20_29: 3,
+      fg_30_39: 3,
+      fg_40_49: 4,
+      fg_50_plus: 5,
+      fg_miss_0_19: -3,
+      fg_miss_20_29: -3,
+      fg_miss_30_39: -3,
+      fg_miss_40_49: -3,
+      fg_miss_50_plus: -3,
+      pat_made: 1,
+      pat_miss: -1,
+      sack: 1,
+      def_int: 2,
+      fum_rec: 2,
+      def_td: 6,
+      safety: 2,
+      block_kick: 3,
+      def_return_td: 6,
+      xp_returned: 2,
+    },
+  },
+  roster: {
+    starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1 },
+    bench: 7,
+    ir_slots: 1,
+  },
+  waiver: {
+    type: 'rolling',
+    budget: 100,
+    reset: 'weekly',
+    process_day: 'Tuesday',
+    clear_days: 2,
+  },
+  trades: {
+    review: 'commissioner',
+    veto_votes: 5,
+    reject_days: 1,
+    deadline: '2026-12-02',
+    allow_draft_pick_trades: false,
+  },
+  keepers: { count: 0, cost_increase: null },
+  playoff_teams: 6,
+  playoff_start_week: 15,
+  playoff_end_week: 17,
+  fractional_points: true,
+  negative_points: true,
+};
+
 // Live, no-JSON league editor. Loads the current league, edits inline, saves via PUT.
 export default function LeagueSettings() {
   const [leagueId, setLeagueId] = useState<number | null>(null);
   const [s, setS] = useState<LS | null>(null);
+  const [defaultSettings, setDefaultSettings] = useState<LS | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
   const [rawJson, setRawJson] = useState('');
@@ -17,12 +85,24 @@ export default function LeagueSettings() {
       try {
         const lg = await api.myLeague();
         setLeagueId(lg.id);
+        setDefaultSettings(lg.settings);
         setS(lg.settings);
       } catch {
-        setS(await api.defaults());
+        const d = await api.defaults();
+        setDefaultSettings(d);
+        setS(d);
       }
     })();
   }, []);
+
+  function applyPreset(name: "Gage's league" | "Vinny's league") {
+    const next =
+      name === "Gage's league"
+        ? defaultSettings ?? s ?? VINNY_LEAGUE_PRESET
+        : VINNY_LEAGUE_PRESET;
+    setS(JSON.parse(JSON.stringify(next)));
+    setStatus(`Loaded ${name} preset`);
+  }
 
   function patch(partial: Partial<LS>) {
     setS((prev) => (prev ? { ...prev, ...partial } : prev));
@@ -78,11 +158,19 @@ export default function LeagueSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-xl font-bold">League Settings</h1>
-        <button className="btn" onClick={save}>
-          Save changes
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-ghost" onClick={() => applyPreset("Gage's league")}>
+            Gage's league
+          </button>
+          <button className="btn-ghost" onClick={() => applyPreset("Vinny's league")}>
+            Vinny's league
+          </button>
+          <button className="btn" onClick={save}>
+            Save changes
+          </button>
+        </div>
       </div>
       {status && <p className="text-gridiron-400 text-sm">{status}</p>}
 

@@ -31,6 +31,24 @@ from app.routers import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+
+    # Ensure the app has a usable player universe on first boot. This prevents a
+    # freshly deployed Render service from starting with an empty DB and showing
+    # an empty rankings table until a manual refresh is triggered.
+    from sqlalchemy.orm import Session
+
+    from app.database import SessionLocal
+    from app.models import Player
+
+    db: Session = SessionLocal()
+    try:
+        if db.query(Player).count() == 0:
+            from app.seed import seed
+
+            seed()
+    finally:
+        db.close()
+
     yield
 
 

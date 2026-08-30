@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { api } from '../api/client';
 import Logo from '../components/Logo';
 
 // Sign in to save your league settings + custom board across devices. Guests can
-// skip and use the shared default league.
+// skip and use the shared default league. If no backend is reachable (e.g. the
+// installed PWA with data baked in), we drop straight into the app as a guest.
 export default function SignIn({ onSkip }: { onSkip: () => void }) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -11,6 +13,14 @@ export default function SignIn({ onSkip }: { onSkip: () => void }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    api
+      .health()
+      .then(() => setChecking(false))
+      .catch(() => onSkip()); // no backend -> enter as guest automatically
+  }, [onSkip]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,6 +38,14 @@ export default function SignIn({ onSkip }: { onSkip: () => void }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted">
+        Loading GRIDLORD…
+      </div>
+    );
   }
 
   return (

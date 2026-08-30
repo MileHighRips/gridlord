@@ -13,12 +13,27 @@ export function resolveApiBase(): string {
     if (host.includes('localhost') || host === '127.0.0.1') return 'http://localhost:8000';
   }
 
-  return 'http://localhost:8000';
+  return 'https://gridlord-api.onrender.com';
 }
 
 const BASE = resolveApiBase();
 
 const TOKEN_KEY = 'gridlord_token';
+
+export async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(input, init);
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
+  }
+
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
+}
 export const tokenStore = {
   get: () => localStorage.getItem(TOKEN_KEY),
   set: (t: string) => localStorage.setItem(TOKEN_KEY, t),

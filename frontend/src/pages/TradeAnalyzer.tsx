@@ -14,17 +14,27 @@ export default function TradeAnalyzer() {
   }, []);
 
   async function analyze() {
-    const res = await fetch(`${BASE}/api/trades/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        team_a: 'You',
-        team_b: 'Them',
-        team_a_gives: aGives,
-        team_b_gives: bGives,
-      }),
-    });
-    setResult(await res.json());
+    try {
+      const res = await fetch(`${BASE}/api/trades/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_a: 'You',
+          team_b: 'Them',
+          team_a_gives: aGives,
+          team_b_gives: bGives,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+      setResult(await res.json());
+    } catch (error) {
+      setResult(null);
+      window.alert(
+        `Trade analysis is unavailable right now. ${error instanceof Error ? error.message : 'Please try again.'}`,
+      );
+    }
   }
 
   return (

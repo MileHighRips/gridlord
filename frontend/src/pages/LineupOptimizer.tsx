@@ -21,12 +21,22 @@ export default function LineupOptimizer() {
   }
 
   async function optimize() {
-    const res = await fetch(`${BASE}/api/lineup/optimize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_ids: [...selected], slots: SLOTS }),
-    });
-    setResult(await res.json());
+    try {
+      const res = await fetch(`${BASE}/api/lineup/optimize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_ids: [...selected], slots: SLOTS }),
+      });
+      if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+      setResult(await res.json());
+    } catch (error) {
+      setResult(null);
+      window.alert(
+        `Live lineup optimization is unavailable right now. ${error instanceof Error ? error.message : 'Please try again.'}`,
+      );
+    }
   }
 
   return (

@@ -10,16 +10,26 @@ export default function WaiverBoard() {
   const [rows, setRows] = useState<any[]>([]);
 
   async function load() {
-    const res = await fetch(`${BASE}/api/waivers/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        faab_budget: 100,
-        faab_remaining: faab,
-        my_needs: needs,
-      }),
-    });
-    setRows(await res.json());
+    try {
+      const res = await fetch(`${BASE}/api/waivers/recommend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          faab_budget: 100,
+          faab_remaining: faab,
+          my_needs: needs,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
+      setRows(await res.json());
+    } catch (error) {
+      setRows([]);
+      window.alert(
+        `Waiver recommendations are unavailable right now. ${error instanceof Error ? error.message : 'Please try again.'}`,
+      );
+    }
   }
 
   function toggleNeed(p: string) {

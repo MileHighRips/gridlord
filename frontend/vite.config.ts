@@ -1,9 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// `base` is configurable for GitHub Pages project sites (e.g. '/gridlord/').
+// GitHub Pages project sites must serve assets from the repo subpath.
 export default defineConfig({
-  base: process.env.VITE_BASE ?? '/',
+  base: process.env.VITE_BASE ?? '/gridlord/',
   plugins: [react()],
-  server: { port: 5173 },
+  server: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
+  },
 });

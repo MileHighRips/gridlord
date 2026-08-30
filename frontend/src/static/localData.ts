@@ -166,14 +166,12 @@ export const local = {
     }
     return {
       saved: false,
-      players: rows
-        .slice(0, 200)
-        .map((r) => ({
-          player_id: r.player_id,
-          name: r.name,
-          position: r.position,
-          team: r.team,
-        })),
+      players: rows.slice(0, 200).map((r) => ({
+        player_id: r.player_id,
+        name: r.name,
+        position: r.position,
+        team: r.team,
+      })),
     };
   },
   async saveBoard(playerIds: number[]): Promise<{ status: string; count: number }> {

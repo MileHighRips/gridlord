@@ -42,7 +42,7 @@ export default function SignIn({ onSkip }: { onSkip: () => void }) {
 
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-muted">
+      <div className="text-muted flex min-h-screen items-center justify-center">
         Loading GRIDLORD…
       </div>
     );

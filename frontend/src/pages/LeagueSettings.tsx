@@ -98,7 +98,7 @@ export default function LeagueSettings() {
   function applyPreset(name: "Gage's league" | "Vinny's league") {
     const next =
       name === "Gage's league"
-        ? defaultSettings ?? s ?? VINNY_LEAGUE_PRESET
+        ? (defaultSettings ?? s ?? VINNY_LEAGUE_PRESET)
         : VINNY_LEAGUE_PRESET;
     setS(JSON.parse(JSON.stringify(next)));
     setStatus(`Loaded ${name} preset`);

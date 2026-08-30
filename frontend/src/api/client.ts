@@ -10,7 +10,8 @@ export function resolveApiBase(): string {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     if (host.includes('github.io')) return 'https://gridlord-api.onrender.com';
-    if (host.includes('localhost') || host === '127.0.0.1') return 'http://localhost:8000';
+    if (host.includes('localhost') || host === '127.0.0.1')
+      return 'http://localhost:8000';
   }
 
   return 'https://gridlord-api.onrender.com';
@@ -260,9 +261,15 @@ export const api = {
       () => local.news(tag),
     ),
   injuries: () =>
-    withFallback(() => request<InjuryRow[]>('/api/news/injuries'), () => local.injuries()),
+    withFallback(
+      () => request<InjuryRow[]>('/api/news/injuries'),
+      () => local.injuries(),
+    ),
   defaults: () =>
-    withFallback(() => request<LeagueSettings>('/api/leagues/defaults'), () => local.defaults()),
+    withFallback(
+      () => request<LeagueSettings>('/api/leagues/defaults'),
+      () => local.defaults(),
+    ),
   leagues: () =>
     request<Array<{ id: number; name: string; settings: LeagueSettings }>>(
       '/api/leagues',

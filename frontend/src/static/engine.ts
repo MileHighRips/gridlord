@@ -71,7 +71,12 @@ function normCdf(x: number): number {
   return 0.5 * (1 + erf);
 }
 
-function bonus(totalYd: number, gp: number, tiers: [number, number][], cv: number): number {
+function bonus(
+  totalYd: number,
+  gp: number,
+  tiers: [number, number][],
+  cv: number,
+): number {
   if (gp <= 0 || totalYd <= 0) return 0;
   const perGame = totalYd / gp;
   const sd = Math.max(cv * perGame, 1);
@@ -266,7 +271,9 @@ export function computeRankings(
   // Within-position expert-consensus ordering; VORP magnitudes set placement.
   for (const group of Object.values(byPos)) {
     const vorpsDesc = group.map((e) => e.vorp).sort((a, b) => b - a);
-    const haveEcr = group.filter((e) => e.p.ecr != null).sort((a, b) => a.p.ecr! - b.p.ecr!);
+    const haveEcr = group
+      .filter((e) => e.p.ecr != null)
+      .sort((a, b) => a.p.ecr! - b.p.ecr!);
     const noEcr = group.filter((e) => e.p.ecr == null).sort((a, b) => b.vorp - a.vorp);
     [...haveEcr, ...noEcr].forEach((e, i) => {
       const marketVorp = vorpsDesc[i];
@@ -284,7 +291,9 @@ export function computeRankings(
     const rank = i + 1;
     const adpDelta = e.p.adp != null ? Math.round((e.p.adp - rank) * 10) / 10 : null;
     const adpDiv =
-      e.p.adp != null && e.p.ecr != null ? Math.round((e.p.adp - e.p.ecr) * 10) / 10 : null;
+      e.p.adp != null && e.p.ecr != null
+        ? Math.round((e.p.adp - e.p.ecr) * 10) / 10
+        : null;
     return {
       rank,
       player_id: e.p.player_id,
@@ -316,7 +325,8 @@ function assignTiers(rows: { vorp: number; tier: number }[]): void {
   if (!rows.length) return;
   const order = [...rows].sort((a, b) => b.vorp - a.vorp);
   const diffs: number[] = [];
-  for (let i = 0; i < order.length - 1; i++) diffs.push(order[i].vorp - order[i + 1].vorp);
+  for (let i = 0; i < order.length - 1; i++)
+    diffs.push(order[i].vorp - order[i + 1].vorp);
   const pos = diffs.filter((d) => d > 0);
   const avg = pos.length ? pos.reduce((a, b) => a + b, 0) / pos.length : 1e-9;
   let tier = 1;
@@ -342,12 +352,18 @@ function buildDrivers(
     d.splice(1, 0, `⚠ ${p.injury_status} — projection discounted for availability`);
   if (p.ecr) {
     if (p.ecr_delta && Math.abs(p.ecr_delta) >= 2)
-      d.push(`Experts: ECR ${p.ecr.toFixed(0)} (${p.ecr_delta > 0 ? '▲ rising' : '▼ falling'} ${Math.abs(p.ecr_delta).toFixed(0)})`);
+      d.push(
+        `Experts: ECR ${p.ecr.toFixed(0)} (${p.ecr_delta > 0 ? '▲ rising' : '▼ falling'} ${Math.abs(p.ecr_delta).toFixed(0)})`,
+      );
     else d.push(`Expert consensus ECR ${p.ecr.toFixed(0)}`);
   }
   if (p.role_note) d.push(p.role_note);
   if (adpDelta != null && Math.abs(adpDelta) >= 4)
-    d.push(adpDelta > 0 ? `Value: ADP ${p.adp!.toFixed(0)} (+${adpDelta.toFixed(0)})` : `Reach risk vs talent`);
+    d.push(
+      adpDelta > 0
+        ? `Value: ADP ${p.adp!.toFixed(0)} (+${adpDelta.toFixed(0)})`
+        : `Reach risk vs talent`,
+    );
   return d.slice(0, 3);
 }
 
@@ -358,7 +374,10 @@ export function computeGems(players: StaticPlayer[], settings: LeagueSettings): 
   const byPos: Record<string, { adp: number; proj: number }[]> = {};
   for (const p of players)
     if (p.adp != null)
-      (byPos[p.position] ??= []).push({ adp: p.adp, proj: byId.get(p.player_id)?.proj_points ?? 0 });
+      (byPos[p.position] ??= []).push({
+        adp: p.adp,
+        proj: byId.get(p.player_id)?.proj_points ?? 0,
+      });
   const coef: Record<string, [number, number]> = {};
   for (const [pos, pts] of Object.entries(byPos)) {
     if (pts.length < 4) continue;
@@ -420,7 +439,12 @@ function slotForOverall(overall: number, numTeams: number): number {
   return rnd % 2 === 1 ? pir : numTeams - pir + 1;
 }
 
-function nextPickForSlot(slot: number, numTeams: number, rounds: number, made: number): number | null {
+function nextPickForSlot(
+  slot: number,
+  numTeams: number,
+  rounds: number,
+  made: number,
+): number | null {
   for (let rnd = 1; rnd <= rounds; rnd++) {
     const pir = rnd % 2 === 0 ? numTeams - slot + 1 : slot;
     const overall = (rnd - 1) * numTeams + pir;
@@ -440,7 +464,8 @@ function posValueMult(
   const have = counts[position] || 0;
   const [starters, target] = ROSTER_TARGETS[position] ?? [1, 2];
   let flexSurplus = 0;
-  for (const p of FLEX_ELIGIBLE) flexSurplus += Math.max((counts[p] || 0) - ROSTER_TARGETS[p][0], 0);
+  for (const p of FLEX_ELIGIBLE)
+    flexSurplus += Math.max((counts[p] || 0) - ROSTER_TARGETS[p][0], 0);
   const flexOpen = Math.max(1 - flexSurplus, 0);
   const roundsLeft = totalRounds - round + 1;
   if (position === 'K' || position === 'DEF') {
@@ -449,7 +474,11 @@ function posValueMult(
     if (roundsLeft <= 4) return [0.6, `${position} can wait`];
     return [0.08, `Too early for ${position}`];
   }
-  if (have < starters) return [(starters - have) >= 2 ? 1.7 : 1.45, `Fills ${position}${have + 1} starter slot`];
+  if (have < starters)
+    return [
+      starters - have >= 2 ? 1.7 : 1.45,
+      `Fills ${position}${have + 1} starter slot`,
+    ];
   if (FLEX_ELIGIBLE.has(position) && flexOpen > 0 && have < target)
     return [1.15, `Depth for FLEX / bye (${position}${have + 1})`];
   if (have < target) {
@@ -498,7 +527,10 @@ export function computeDraftRecommend(
     const [mult, reason] = posValueMult(p.position, myPositions, round, state.rounds);
     const surv = survival(p.adp, myNext, picksUntil);
     const drivers = [p.drivers[0], reason];
-    if (p.adp != null && myNext) drivers.push(`ADP ${p.adp.toFixed(0)}; ~${Math.round(surv * 100)}% to survive to #${myNext}`);
+    if (p.adp != null && myNext)
+      drivers.push(
+        `ADP ${p.adp.toFixed(0)}; ~${Math.round(surv * 100)}% to survive to #${myNext}`,
+      );
     return {
       player_id: p.player_id,
       name: p.name,
@@ -530,12 +562,26 @@ export function computeDraftRecommend(
     best_available_by_position: bestByPos,
     opponent_styles: opponentStyles(state, byId),
     predicted_picks: [],
-    positional_forecast: positionalForecast(state, available, byId, myNext, currentOverall),
+    positional_forecast: positionalForecast(
+      state,
+      available,
+      byId,
+      myNext,
+      currentOverall,
+    ),
   };
 }
 
 function rosterNeeds(myPositions: string[]): Record<string, number> {
-  const need: Record<string, number> = { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1 };
+  const need: Record<string, number> = {
+    QB: 1,
+    RB: 2,
+    WR: 2,
+    TE: 1,
+    FLEX: 1,
+    K: 1,
+    DEF: 1,
+  };
   const counts: Record<string, number> = {};
   for (const p of myPositions) counts[p] = (counts[p] || 0) + 1;
   const out: Record<string, number> = {};
@@ -558,7 +604,11 @@ function reachRisk(adp: number | null, overall: number): string {
   return 'reach';
 }
 
-function scarcityAlerts(available: RankingRow[], needs: Record<string, number>, until: number): string[] {
+function scarcityAlerts(
+  available: RankingRow[],
+  needs: Record<string, number>,
+  until: number,
+): string[] {
   const alerts: string[] = [];
   for (const [pos, n] of Object.entries(needs)) {
     if (pos === 'FLEX' || n <= 0) continue;
@@ -589,8 +639,17 @@ function opponentStyles(
     let style = 'Balanced';
     if (rb >= 2 && wr === 0) style = 'RB-heavy';
     else if (wr >= 2 && rb === 0) style = 'Zero-RB';
-    else if ((counts.QB || 0) >= 1 && Object.values(counts).reduce((a, b) => a + b, 0) <= 3) style = 'Early-QB';
-    out.push({ slot: Number(slot), style, roster: counts, predicted_next: predictNext(counts) });
+    else if (
+      (counts.QB || 0) >= 1 &&
+      Object.values(counts).reduce((a, b) => a + b, 0) <= 3
+    )
+      style = 'Early-QB';
+    out.push({
+      slot: Number(slot),
+      style,
+      roster: counts,
+      predicted_next: predictNext(counts),
+    });
   }
   return out;
 }

@@ -142,7 +142,8 @@ export const local = {
   },
 
   async simulateSeason(): Promise<{ standings: Record<string, unknown>[] }> {
-    if (!_sim) _sim = await loadJson<{ standings: Record<string, unknown>[] }>('sim.json');
+    if (!_sim)
+      _sim = await loadJson<{ standings: Record<string, unknown>[] }>('sim.json');
     return _sim;
   },
 
@@ -155,14 +156,24 @@ export const local = {
       const ordered = ids
         .map((id) => byId.get(id))
         .filter((r): r is RankingRow => !!r)
-        .map((r) => ({ player_id: r.player_id, name: r.name, position: r.position, team: r.team }));
+        .map((r) => ({
+          player_id: r.player_id,
+          name: r.name,
+          position: r.position,
+          team: r.team,
+        }));
       return { saved: true, players: ordered };
     }
     return {
       saved: false,
       players: rows
         .slice(0, 200)
-        .map((r) => ({ player_id: r.player_id, name: r.name, position: r.position, team: r.team })),
+        .map((r) => ({
+          player_id: r.player_id,
+          name: r.name,
+          position: r.position,
+          team: r.team,
+        })),
     };
   },
   async saveBoard(playerIds: number[]): Promise<{ status: string; count: number }> {

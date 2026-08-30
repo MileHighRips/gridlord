@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api, RankingRow } from '../api/client';
+import { api, RankingRow, resolveApiBase } from '../api/client';
 import PositionBadge from '../components/PositionBadge';
 
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const BASE = resolveApiBase();
 const SLOTS = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF'];
 
 export default function LineupOptimizer() {

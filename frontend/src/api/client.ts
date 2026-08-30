@@ -1,5 +1,22 @@
 // Typed API client for the GRIDLORD backend.
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+import { local } from '../static/localData';
+
+export function resolveApiBase(): string {
+  const configured = import.meta.env.VITE_API_BASE?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (import.meta.env.DEV) return 'http://localhost:8000';
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host.includes('github.io')) return 'https://gridlord-api.onrender.com';
+    if (host.includes('localhost') || host === '127.0.0.1') return 'http://localhost:8000';
+  }
+
+  return 'http://localhost:8000';
+}
+
+const BASE = resolveApiBase();
 
 const TOKEN_KEY = 'gridlord_token';
 export const tokenStore = {
@@ -10,18 +27,32 @@ export const tokenStore = {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = tokenStore.get();
-  const res = await fetch(`${BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...options,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+  // Fail fast so the static fallback kicks in quickly when there's no backend.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3500);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      signal: ctrl.signal,
+      ...options,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${res.status} ${res.statusText}: ${text}`);
+    }
+    return res.json() as Promise<T>;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json() as Promise<T>;
+}
+
+// Try the live API; if it's unreachable (e.g. static PWA on a phone), fall back
+// to the on-device engine using the baked-in data snapshot.
+function withFallback<T>(live: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  return live().catch(fallback);
 }
 
 export interface RankingRow {
@@ -180,8 +211,12 @@ export interface LeagueSettings {
 export const api = {
   health: () => request<{ status: string }>('/health'),
   rankings: (position?: string) =>
-    request<RankingRow[]>(
-      `/api/projections/rankings${position ? `?position=${position}` : ''}`,
+    withFallback(
+      () =>
+        request<RankingRow[]>(
+          `/api/projections/rankings${position ? `?position=${position}` : ''}`,
+        ),
+      () => local.rankings(position),
     ),
   refreshRankings: () =>
     request<{ status: string; players_ranked: number; top_player: string }>(
@@ -189,28 +224,49 @@ export const api = {
       { method: 'POST' },
     ),
   refreshLive: () =>
-    request<{ status: string; players: number; news: number; elapsed_seconds: number }>(
-      '/api/projections/refresh-live',
-      { method: 'POST' },
+    withFallback(
+      () =>
+        request<{
+          status: string;
+          players: number;
+          news: number;
+          elapsed_seconds: number;
+        }>('/api/projections/refresh-live', { method: 'POST' }),
+      async () => ({ status: 'snapshot', players: 0, news: 0, elapsed_seconds: 0 }),
     ),
-  hiddenGems: () => request<Record<string, unknown>[]>('/api/projections/hidden-gems'),
-  news: (tag?: string) => request<NewsRow[]>(`/api/news${tag ? `?tag=${tag}` : ''}`),
-  injuries: () => request<InjuryRow[]>('/api/news/injuries'),
-  defaults: () => request<LeagueSettings>('/api/leagues/defaults'),
+  hiddenGems: () =>
+    withFallback(
+      () => request<Record<string, unknown>[]>('/api/projections/hidden-gems'),
+      () => local.hiddenGems(),
+    ),
+  news: (tag?: string) =>
+    withFallback(
+      () => request<NewsRow[]>(`/api/news${tag ? `?tag=${tag}` : ''}`),
+      () => local.news(tag),
+    ),
+  injuries: () =>
+    withFallback(() => request<InjuryRow[]>('/api/news/injuries'), () => local.injuries()),
+  defaults: () =>
+    withFallback(() => request<LeagueSettings>('/api/leagues/defaults'), () => local.defaults()),
   leagues: () =>
     request<Array<{ id: number; name: string; settings: LeagueSettings }>>(
       '/api/leagues',
     ),
   updateLeague: (id: number, settings: LeagueSettings) =>
-    request(`/api/leagues/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(settings),
-    }),
+    withFallback(
+      () =>
+        request(`/api/leagues/${id}`, { method: 'PUT', body: JSON.stringify(settings) }),
+      () => local.updateLeague(id, settings),
+    ),
   createLeague: (settings: LeagueSettings) =>
-    request<{ id: number }>('/api/leagues', {
-      method: 'POST',
-      body: JSON.stringify(settings),
-    }),
+    withFallback(
+      () =>
+        request<{ id: number }>('/api/leagues', {
+          method: 'POST',
+          body: JSON.stringify(settings),
+        }),
+      () => local.createLeague(settings),
+    ),
   importLeague: (provider: string, leagueSettingsJson: unknown) =>
     request('/api/leagues/import', {
       method: 'POST',
@@ -225,21 +281,32 @@ export const api = {
     picks_made: DraftPickIn[];
     position_filter?: string[] | null;
   }) =>
-    request<DraftRecommendResponse>('/api/draft/recommend', {
-      method: 'POST',
-      body: JSON.stringify(state),
-    }),
+    withFallback(
+      () =>
+        request<DraftRecommendResponse>('/api/draft/recommend', {
+          method: 'POST',
+          body: JSON.stringify(state),
+        }),
+      () => local.draftRecommend(state),
+    ),
   simulateSeason: (nSims = 5000) =>
-    request<{ standings: Record<string, unknown>[] }>(
-      `/api/projections/simulate-season?n_sims=${nSims}`,
-      { method: 'POST' },
+    withFallback(
+      () =>
+        request<{ standings: Record<string, unknown>[] }>(
+          `/api/projections/simulate-season?n_sims=${nSims}`,
+          { method: 'POST' },
+        ),
+      () => local.simulateSeason(),
     ),
   sources: () =>
     request<{ live_count: number; pending_count: number; sources: SourceRow[] }>(
       '/api/sources',
     ),
   playerIntel: (sort = 'usage') =>
-    request<IntelRow[]>(`/api/players/intel/board?sort=${sort}`),
+    withFallback(
+      () => request<IntelRow[]>(`/api/players/intel/board?sort=${sort}`),
+      () => local.playerIntel(sort),
+    ),
   // Auth
   register: (email: string, password: string) =>
     request<AuthOut>('/api/auth/register', {
@@ -253,14 +320,28 @@ export const api = {
     }),
   me: () => request<{ id: number; email: string; role: string }>('/api/auth/me'),
   myLeague: () =>
-    request<{ id: number; name: string; settings: LeagueSettings }>('/api/leagues/mine'),
+    withFallback(
+      () =>
+        request<{ id: number; name: string; settings: LeagueSettings }>(
+          '/api/leagues/mine',
+        ),
+      () => local.myLeague(),
+    ),
   // Custom draft board
-  getBoard: () => request<{ saved: boolean; players: BoardPlayer[] }>('/api/board'),
+  getBoard: () =>
+    withFallback(
+      () => request<{ saved: boolean; players: BoardPlayer[] }>('/api/board'),
+      () => local.getBoard(),
+    ),
   saveBoard: (playerIds: number[], name = 'My Board') =>
-    request<{ status: string; count: number }>('/api/board', {
-      method: 'PUT',
-      body: JSON.stringify({ player_ids: playerIds, name }),
-    }),
+    withFallback(
+      () =>
+        request<{ status: string; count: number }>('/api/board', {
+          method: 'PUT',
+          body: JSON.stringify({ player_ids: playerIds, name }),
+        }),
+      () => local.saveBoard(playerIds),
+    ),
 };
 
 export interface AuthOut {

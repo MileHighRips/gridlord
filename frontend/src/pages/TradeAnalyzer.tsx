@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api, RankingRow } from '../api/client';
+import { api, RankingRow, resolveApiBase } from '../api/client';
 
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const BASE = resolveApiBase();
 
 export default function TradeAnalyzer() {
   const [players, setPlayers] = useState<RankingRow[]>([]);

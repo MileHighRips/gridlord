@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { resolveApiBase } from '../api/client';
 import PositionBadge from '../components/PositionBadge';
 
-const BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const BASE = resolveApiBase();
 
 export default function WaiverBoard() {
   const [faab, setFaab] = useState(100);

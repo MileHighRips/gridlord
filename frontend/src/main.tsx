@@ -15,11 +15,31 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 
-// Register the PWA service worker (installable on phone / offline shell).
+// Keep the installed app shell in sync with new deploys so Safari does not keep an
+// old cached dashboard that can render as a white screen.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register(
+        `${import.meta.env.BASE_URL}sw.js`,
+        { scope: import.meta.env.BASE_URL },
+      );
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+
+      registration.addEventListener('updatefound', () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener('statechange', () => {
+          if (installing.state === 'activated' && navigator.serviceWorker.controller) {
+            window.location.reload();
+          }
+        });
+      });
+    } catch {
       /* offline support is best-effort */
-    });
+    }
   });
 }

@@ -12,9 +12,9 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    # Seed live data on boot, then serve. `|| true` keeps the service up even if
-    # an upstream source is briefly unavailable.
-    startCommand: python -m app.ingest || true; uvicorn main:app --host 0.0.0.0 --port $PORT
+    # Seed live data on boot, then serve. Use the dynamic Render port so the app
+    # binds correctly in production; keep the ingest step non-fatal during startup.
+    startCommand: sh -c "python -m app.ingest || true; uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL

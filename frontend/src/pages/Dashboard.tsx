@@ -10,10 +10,7 @@ export default function Dashboard() {
   const [online, setOnline] = useState<boolean | null>(null);
 
   const loadDashboard = async () => {
-    const [rankings, hidden] = await Promise.all([
-      api.rankings(),
-      api.hiddenGems(),
-    ]);
+    const [rankings, hidden] = await Promise.all([api.rankings(), api.hiddenGems()]);
     setTop(rankings.slice(0, 10));
     setGems(hidden.slice(0, 6));
   };

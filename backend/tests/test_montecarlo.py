@@ -5,6 +5,7 @@ from app.engine.draft_engine import (
     DraftContext,
     next_pick_for_slot,
     overall_picks_for_slot,
+    position_value_multiplier,
     roster_needs,
     survival_probability,
 )
@@ -58,3 +59,15 @@ def test_simulate_season_probabilities_sum():
 def test_draft_context_dataclass():
     ctx = DraftContext(num_teams=14, rounds=16, my_slot=7)
     assert ctx.draft_type == "snake"
+
+
+def test_position_value_multiplier_uses_league_roster_needs_and_round_pressure():
+    custom = {"QB": 1, "RB": 3, "WR": 3, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1}
+
+    rb_mult, _ = position_value_multiplier("RB", ["QB", "WR"], 3, 16, starter_needs=custom)
+    qb_mult, _ = position_value_multiplier("QB", ["RB", "WR"], 3, 16, starter_needs=custom)
+    k_mult, _ = position_value_multiplier("K", ["RB", "WR"], 3, 16, starter_needs=custom)
+
+    assert rb_mult > 1.4
+    assert qb_mult > 1.0
+    assert k_mult < 0.5

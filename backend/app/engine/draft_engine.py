@@ -120,25 +120,28 @@ def position_value_multiplier(
     my_positions: list[str],
     current_round: int,
     total_rounds: int,
+    starter_needs: dict[str, int] | None = None,
 ) -> tuple[float, str]:
     """Roster-construction-aware multiplier + a short reason.
 
-    Strongly steers away from positions whose starters are already filled and
-    that have reached their bench-depth target, and suppresses K/DEF until the
-    final rounds. This is what makes back-to-back RBs push the engine toward WR,
-    TE, or QB on the next pick.
+    This is the draft engine's pro-strategy knob: custom league starters are
+    respected, early-round roster pressure is amplified, and K/DEF are suppressed
+    until the final rounds. That is what makes a true pro draft feel like an
+    actual draft board instead of a generic ranked list.
     """
+    starter_needs = starter_needs or DEFAULT_STARTER_NEEDS
     counts: dict[str, int] = {}
     for p in my_positions:
         counts[p] = counts.get(p, 0) + 1
     have = counts.get(position, 0)
-    starters, target_total = ROSTER_TARGETS.get(position, (1, 2))
+    starters = starter_needs.get(position, 0) or 1
+    target_total = max(ROSTER_TARGETS.get(position, (1, 2))[1], starters)
 
-    # Flex accounting: surplus RB/WR/TE beyond their starter counts fill FLEX.
+    # Flex accounting: surplus RB/WR/TE beyond their starter counts feed FLEX.
     flex_surplus = sum(
-        max(counts.get(p, 0) - ROSTER_TARGETS[p][0], 0) for p in FLEX_ELIGIBLE
+        max(counts.get(p, 0) - max(starter_needs.get(p, 0), 1), 0) for p in FLEX_ELIGIBLE
     )
-    flex_open = max(FLEX_SLOTS - flex_surplus, 0)
+    flex_open = max(starter_needs.get("FLEX", 0) - flex_surplus, 0)
 
     # K / DEF: near-worthless until the last 3 rounds, then must-fill.
     rounds_left = total_rounds - current_round + 1
@@ -151,23 +154,37 @@ def position_value_multiplier(
             return 0.6, f"{position} can wait 1–2 rounds"
         return 0.08, f"Too early for {position}"
 
+    unmet = max(starters - have, 0)
+    early_pressure = 0.0
+    if current_round <= 3:
+        early_pressure = 0.45
+    elif current_round <= 6:
+        early_pressure = 0.25
+    elif current_round <= 10:
+        early_pressure = 0.1
+
     # Starter slot still open at this position -> highest priority.
     if have < starters:
-        urgency = 1.7 if (starters - have) >= 2 else 1.45
-        return urgency, f"Fills {position}{have + 1} starter slot"
+        urgency = 1.35 + unmet * 0.45 + early_pressure
+        if position == "QB":
+            urgency += 0.15
+        if position in ("RB", "WR"):
+            urgency += 0.1
+        return round(urgency, 2), f"Fills {position}{have + 1} starter slot"
 
-    # Starters filled; a FLEX slot is open and this position is flex-eligible.
+    # Starters filled; if FLEX is still open, depth is still useful.
     if position in FLEX_ELIGIBLE and flex_open > 0 and have < target_total:
-        return 1.15, f"Depth for FLEX / bye coverage ({position}{have + 1})"
+        flex_value = 1.1 + early_pressure * 0.75
+        return round(flex_value, 2), f"Depth for FLEX / bye coverage ({position}{have + 1})"
 
     # Building bench depth below target.
     if have < target_total:
-        # Diminishing value as we approach the depth target.
         frac = (target_total - have) / max(target_total - starters, 1)
-        return round(0.6 + 0.35 * frac, 2), f"{position} bench depth ({have + 1})"
+        depth_value = 0.7 + 0.35 * frac + max(0.0, 0.2 - (current_round / 20.0))
+        return round(depth_value, 2), f"{position} bench depth ({have + 1})"
 
     # At or beyond target depth -> strongly discount.
-    return 0.3, f"{position} already deep — value pick only"
+    return 0.25, f"{position} already deep — value pick only"
 
 
 # --------------------------------------------------------------------------- #
@@ -196,6 +213,80 @@ def _reach_risk(adp: float | None, current_overall: int) -> str:
     return "reach"
 
 
+def _scarcity_multiplier(
+    position: str,
+    available: list[RankedPlayer],
+    starter_needs: dict[str, int],
+    roster_needs: dict[str, int],
+    current_round: int,
+) -> float:
+    """Higher scarcity = stronger premium in the early/mid rounds."""
+    pos_pool = [p for p in available if p.position == position]
+    pos_candidates = [p for p in pos_pool if p.vorp > 0]
+    count = len(pos_candidates)
+    need_left = roster_needs.get(position, 0)
+    slots_needed = max(starter_needs.get(position, 0), 1)
+
+    if count == 0:
+        return 1.0
+
+    if position in ("RB", "WR"):
+        if count <= 5:
+            return 1.45
+        if count <= 10:
+            return 1.2
+        if count <= 18:
+            return 1.08
+    if position == "QB":
+        if count <= 8:
+            return 1.35
+        if count <= 14:
+            return 1.15
+    if position == "TE":
+        if count <= 6:
+            return 1.3
+        if count <= 10:
+            return 1.15
+    if position in ("K", "DEF"):
+        if count <= 2:
+            return 1.2
+
+    if need_left > 0 and current_round <= 8:
+        return 1.15 + min(need_left, 2) * 0.12
+    if slots_needed >= 2 and current_round <= 5:
+        return 1.08
+    return 1.0
+
+
+def _round_timing_multiplier(position: str, current_round: int, total_rounds: int) -> float:
+    """Concentrate value at the draft windows where that position matters most."""
+    rounds_left = max(total_rounds - current_round + 1, 1)
+    if position in ("RB", "WR"):
+        if current_round <= 3:
+            return 1.22
+        if current_round <= 7:
+            return 1.1
+        if current_round <= 11:
+            return 1.02
+    if position == "QB":
+        if current_round <= 4:
+            return 1.12
+        if current_round <= 9:
+            return 1.05
+        if rounds_left <= 3:
+            return 1.08
+    if position == "TE":
+        if current_round <= 5:
+            return 1.18
+        if current_round <= 9:
+            return 1.08
+    if position in ("K", "DEF"):
+        if rounds_left <= 3:
+            return 1.35
+        return 0.55
+    return 1.0
+
+
 # --------------------------------------------------------------------------- #
 # Live recommendation
 # --------------------------------------------------------------------------- #
@@ -209,6 +300,7 @@ def recommend(
     position_filter: list[str] | None = None,
 ) -> tuple[list[Recommendation], dict]:
     """Produce ranked live recommendations plus draft-state metadata."""
+    starter_needs = starter_needs or DEFAULT_STARTER_NEEDS
     needs = roster_needs(my_positions, starter_needs)
     current_overall = picks_made + 1
     my_next = next_pick_for_slot(
@@ -225,11 +317,24 @@ def recommend(
     recs: list[Recommendation] = []
     for p in pool:
         mult, reason = position_value_multiplier(
-            p.position, my_positions, current_round, ctx.rounds
+            p.position,
+            my_positions,
+            current_round,
+            ctx.rounds,
+            starter_needs=starter_needs,
         )
-        nwv = round(p.vorp * mult, 2)
+        scarce = _scarcity_multiplier(p.position, pool, starter_needs, needs, current_round)
+        timing = _round_timing_multiplier(p.position, current_round, ctx.rounds)
         surv = survival_probability(p.adp, my_next, picks_until_next)
         risk = _reach_risk(p.adp, current_overall)
+
+        # Pro-strategy composite: value + roster need + scarcity + timing + survival.
+        late_round_bias = 1.0 if current_round <= 12 else 0.94
+        safety_bonus = 1.0 + (0.15 if risk == "safe" else 0.07 if risk == "slight_reach" else 0.0)
+        nwv = round(
+            p.vorp * mult * scarce * timing * late_round_bias * (0.75 + 0.5 * surv) * safety_bonus,
+            2,
+        )
 
         drivers = list(p.drivers[:1])
         drivers.append(reason)
@@ -288,6 +393,7 @@ def simulate_mock_draft(
     ctx: DraftContext,
     adp_noise: float = 6.0,
     seed: int | None = None,
+    starter_needs: dict[str, int] | None = None,
 ) -> list[tuple[int, RankedPlayer]]:
     """Simulate one full mock draft; opponents pick by ADP + gaussian noise."""
     import random
@@ -310,7 +416,13 @@ def simulate_mock_draft(
             pick = max(
                 pool,
                 key=lambda p: p.vorp
-                * position_value_multiplier(p.position, my_positions, rnd, ctx.rounds)[0],
+                * position_value_multiplier(
+                    p.position,
+                    my_positions,
+                    rnd,
+                    ctx.rounds,
+                    starter_needs=starter_needs,
+                )[0],
             )
             my_positions.append(pick.position)
         else:

@@ -9,13 +9,21 @@ export default function Dashboard() {
   const [gems, setGems] = useState<Record<string, unknown>[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
 
+  const loadDashboard = async () => {
+    const [rankings, hidden] = await Promise.all([
+      api.rankings(),
+      api.hiddenGems(),
+    ]);
+    setTop(rankings.slice(0, 10));
+    setGems(hidden.slice(0, 6));
+  };
+
   useEffect(() => {
     api
       .health()
       .then(() => setOnline(true))
       .catch(() => setOnline(false));
-    api.rankings().then((r) => setTop(r.slice(0, 10)));
-    api.hiddenGems().then((g) => setGems(g.slice(0, 6)));
+    void loadDashboard();
   }, []);
 
   return (
@@ -30,7 +38,7 @@ export default function Dashboard() {
             </span>
           </p>
         </div>
-        <RefreshButton />
+        <RefreshButton onRefresh={loadDashboard} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

@@ -8,12 +8,18 @@ export default function Rankings() {
   const [pos, setPos] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadRows = async () => {
     setLoading(true);
-    api
-      .rankings(pos || undefined)
-      .then(setRows)
-      .finally(() => setLoading(false));
+    try {
+      const rows = await api.rankings(pos || undefined);
+      setRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRows();
   }, [pos]);
 
   return (
@@ -39,7 +45,7 @@ export default function Rankings() {
               <option key={p}>{p}</option>
             ))}
           </select>
-          <RefreshButton />
+          <RefreshButton onRefresh={loadRows} />
         </div>
       </div>
 

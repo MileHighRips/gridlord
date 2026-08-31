@@ -20,11 +20,18 @@ export default function HiddenGems() {
   const [gems, setGems] = useState<Gem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadGems = async () => {
+    setLoading(true);
+    try {
+      const g = await api.hiddenGems();
+      setGems(g as unknown as Gem[]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    api
-      .hiddenGems()
-      .then((g) => setGems(g as unknown as Gem[]))
-      .finally(() => setLoading(false));
+    void loadGems();
   }, []);
 
   return (
@@ -36,7 +43,7 @@ export default function HiddenGems() {
             Projection vs. ADP-tier delta × usage trend × (1 − rostered %).
           </p>
         </div>
-        <RefreshButton />
+        <RefreshButton onRefresh={loadGems} />
       </div>
 
       {loading && <p className="text-slate-500">Loading…</p>}

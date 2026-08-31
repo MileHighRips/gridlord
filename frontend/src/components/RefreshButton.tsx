@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 
-export default function RefreshButton() {
+export default function RefreshButton({
+  onRefresh,
+}: {
+  onRefresh?: () => Promise<void> | void;
+}) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -10,6 +14,9 @@ export default function RefreshButton() {
     setMsg('Pulling live data…');
     try {
       const r = await api.refreshLive();
+      if (onRefresh) {
+        await onRefresh();
+      }
       setMsg(`✓ ${r.players} players + ${r.news} news in ${r.elapsed_seconds}s`);
     } catch (e) {
       setMsg((e as Error).message);

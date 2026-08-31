@@ -17,12 +17,18 @@ export default function PlayerIntel() {
   const [rows, setRows] = useState<IntelRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadIntel = async () => {
     setLoading(true);
-    api
-      .playerIntel(sort)
-      .then(setRows)
-      .finally(() => setLoading(false));
+    try {
+      const rows = await api.playerIntel(sort);
+      setRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadIntel();
   }, [sort]);
 
   return (
@@ -36,7 +42,7 @@ export default function PlayerIntel() {
             move before the points do.
           </p>
         </div>
-        <RefreshButton />
+        <RefreshButton onRefresh={loadIntel} />
       </div>
 
       <div className="flex flex-wrap gap-1.5">

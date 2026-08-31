@@ -287,6 +287,36 @@ def _round_timing_multiplier(position: str, current_round: int, total_rounds: in
     return 1.0
 
 
+def _championship_strategy_multiplier(
+    position: str,
+    my_positions: list[str],
+    starter_needs: dict[str, int],
+    current_round: int,
+) -> float:
+    """The final pro-draft layer: optimize for a title-contending roster build."""
+    counts: dict[str, int] = {}
+    for pos in my_positions:
+        counts[pos] = counts.get(pos, 0) + 1
+
+    need_gap = max((starter_needs.get(position, 0) or 1) - counts.get(position, 0), 0)
+    flex_gap = max(starter_needs.get("FLEX", 0) - max(0, counts.get("RB", 0) - (starter_needs.get("RB", 0) or 1)) - max(0, counts.get("WR", 0) - (starter_needs.get("WR", 0) or 1)) - max(0, counts.get("TE", 0) - (starter_needs.get("TE", 0) or 1)), 0)
+
+    base = 1.0
+    if need_gap > 0:
+        base += 0.32 * need_gap
+    if position in FLEX_ELIGIBLE and flex_gap > 0:
+        base += 0.18
+    if position in ("RB", "WR") and current_round <= 6:
+        base += 0.2
+    if position == "QB" and current_round <= 4:
+        base += 0.1
+    if position == "TE" and current_round <= 6:
+        base += 0.12
+    if position in ("K", "DEF"):
+        return 0.7
+    return round(base, 3)
+
+
 # --------------------------------------------------------------------------- #
 # Live recommendation
 # --------------------------------------------------------------------------- #
@@ -325,6 +355,9 @@ def recommend(
         )
         scarce = _scarcity_multiplier(p.position, pool, starter_needs, needs, current_round)
         timing = _round_timing_multiplier(p.position, current_round, ctx.rounds)
+        strategy = _championship_strategy_multiplier(
+            p.position, my_positions, starter_needs, current_round
+        )
         surv = survival_probability(p.adp, my_next, picks_until_next)
         risk = _reach_risk(p.adp, current_overall)
 
@@ -332,7 +365,7 @@ def recommend(
         late_round_bias = 1.0 if current_round <= 12 else 0.94
         safety_bonus = 1.0 + (0.15 if risk == "safe" else 0.07 if risk == "slight_reach" else 0.0)
         nwv = round(
-            p.vorp * mult * scarce * timing * late_round_bias * (0.75 + 0.5 * surv) * safety_bonus,
+            p.vorp * mult * scarce * timing * strategy * late_round_bias * (0.75 + 0.5 * surv) * safety_bonus,
             2,
         )
 

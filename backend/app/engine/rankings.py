@@ -14,18 +14,18 @@ import numpy as np
 # Tunable per league (num_teams * starters_at_position).
 DEFAULT_REPLACEMENT_RANK = {
     "QB": 14,
-    "RB": 30,  # ~2 RB + flex across 14 teams
-    "WR": 36,
-    "TE": 14,
+    "RB": 26,  # slightly lower replacement floor so elite RBs stay near the top
+    "WR": 32,
+    "TE": 12,
     "K": 14,
     "DEF": 14,
 }
 
-# ECR (expert consensus) is a scoring-agnostic market prior. It sets the order
-# *within* a position; scoring-driven VORP sets how high the position sits.
-# MARKET_WITHIN_POS = how much to trust expert order within a position (0..1).
-MARKET_WITHIN_POS = 0.7
-ECR_BLEND_WEIGHT = 0.35
+# ECR (expert consensus) is a scoring-agnostic market prior. The engine should
+# trust it more heavily when setting the order *within* a position; scoring-
+# driven VORP still sets overall positional value.
+MARKET_WITHIN_POS = 0.85
+ECR_BLEND_WEIGHT = 0.55
 ECR_CLAMP = 1.25
 
 
@@ -171,6 +171,10 @@ def rank_players(
         for i, g in enumerate(market_order):
             market_vorp = vorps_desc[i]  # value of the i-th best slot at this position
             w = MARKET_WITHIN_POS if g["p"].ecr else 0.0
+            # Heavier consensus weighting keeps tier-1 stars like Bijan / Gibbs near
+            # the top of the board while still preserving slot-specific VORP value.
+            if g["p"].ecr:
+                w = max(w, ECR_BLEND_WEIGHT)
             g["blended"] = (1.0 - w) * g["vorp"] + w * market_vorp
 
     enriched.sort(key=lambda e: -e["blended"])

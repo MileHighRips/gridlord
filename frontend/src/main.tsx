@@ -30,16 +30,16 @@ if ('serviceWorker' in navigator) {
         { scope: import.meta.env.BASE_URL },
       );
 
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        window.location.reload();
-      });
-
+      const SW_RELOAD_KEY = 'gridlord_sw_reload_done';
       registration.addEventListener('updatefound', () => {
         const installing = registration.installing;
         if (!installing) return;
         installing.addEventListener('statechange', () => {
           if (installing.state === 'activated' && navigator.serviceWorker.controller) {
-            window.location.reload();
+            if (sessionStorage.getItem(SW_RELOAD_KEY) !== '1') {
+              sessionStorage.setItem(SW_RELOAD_KEY, '1');
+              window.location.reload();
+            }
           }
         });
       });

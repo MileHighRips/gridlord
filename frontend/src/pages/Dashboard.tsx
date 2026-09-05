@@ -17,6 +17,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     const boot = async () => {
+      // Show the board immediately from the live API or cached snapshot so the
+      // dashboard is never blank while a slow live refresh runs.
+      await loadDashboard();
+
       try {
         await api.health();
         setOnline(true);
@@ -24,13 +28,13 @@ export default function Dashboard() {
         setOnline(false);
       }
 
-      try {
-        await api.refreshLive();
-      } catch {
-        // Fall back to the last cached data if the backend is unavailable.
-      } finally {
-        await loadDashboard();
-      }
+      // Kick off a live refresh in the background; when it finishes, repaint.
+      api
+        .refreshLive()
+        .then(() => loadDashboard())
+        .catch(() => {
+          // Keep the already-rendered cached board if the refresh fails.
+        });
     };
 
     void boot();

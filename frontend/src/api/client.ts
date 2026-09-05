@@ -96,7 +96,11 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  options?: RequestInit,
+  timeoutMs = 8000,
+): Promise<T> {
   const token = tokenStore.get();
   const candidates = Array.from(
     new Set([
@@ -109,7 +113,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   let lastError: Error | null = null;
   for (const base of candidates) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 3500);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch(`${base}${path}`, {
         headers: {
@@ -368,7 +372,7 @@ export const api = {
         reason?: string | null;
         errors?: string[];
         elapsed_seconds: number;
-      }>('/api/projections/refresh-live', { method: 'POST' });
+      }>('/api/projections/refresh-live', { method: 'POST' }, 120000);
 
       if (typeof window !== 'undefined') {
         Object.values(CACHE_KEYS).forEach((key) => window.localStorage.removeItem(key));

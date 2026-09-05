@@ -28,10 +28,21 @@ export default function Dashboard() {
         setOnline(false);
       }
 
-      // Kick off a live refresh in the background; when it finishes, repaint.
+      // Throttle the automatic background refresh so simply opening the app does
+      // not fire a heavy ~30s ingest every time (which also causes DB-lock
+      // collisions). Auto-refresh at most once every 15 minutes; the Refresh
+      // button always forces a fresh pull on demand.
+      const REFRESH_TS_KEY = 'gridlord_last_auto_refresh';
+      const FIFTEEN_MIN = 15 * 60 * 1000;
+      const last = Number(window.localStorage.getItem(REFRESH_TS_KEY) || 0);
+      if (Date.now() - last < FIFTEEN_MIN) return;
+
       api
         .refreshLive()
-        .then(() => loadDashboard())
+        .then(() => {
+          window.localStorage.setItem(REFRESH_TS_KEY, String(Date.now()));
+          return loadDashboard();
+        })
         .catch(() => {
           // Keep the already-rendered cached board if the refresh fails.
         });

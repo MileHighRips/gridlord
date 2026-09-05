@@ -26,7 +26,7 @@ if settings.database_url.startswith("sqlite"):
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA busy_timeout=15000")
+            cursor.execute("PRAGMA busy_timeout=30000")
             cursor.execute("PRAGMA synchronous=NORMAL")
         finally:
             cursor.close()

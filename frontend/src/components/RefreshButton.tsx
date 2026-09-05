@@ -17,7 +17,9 @@ export default function RefreshButton({
       if (onRefresh) {
         await onRefresh();
       }
-      if (r.status === 'cached' || (r.live_players ?? r.players) === 0) {
+      if (r.status === 'busy') {
+        setMsg(`⏳ A refresh is already running — showing ${r.players} players.`);
+      } else if (r.status === 'cached' || (r.live_players ?? r.players) === 0) {
         const reason = r.reason || 'Live sources returned 0 players.';
         setMsg(`⚠ Live pull returned 0 — ${reason} Showing ${r.players} cached.`);
       } else {

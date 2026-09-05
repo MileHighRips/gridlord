@@ -1,13 +1,15 @@
 """Projection & ranking endpoints, plus daily refresh + Monte Carlo."""
 from __future__ import annotations
 
+import threading
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..engine.hidden_gems import GemCandidate, find_hidden_gems
 from ..engine.montecarlo import TeamSeasonInput, simulate_season
-from ..models import ADPEntry, AuditLog, Player, Projection, Team
+from ..models import ADPEntry, AuditLog, NewsItem, Player, Projection, Team
 from ..schemas.projection import RankingRow
 from ._common import load_ranked_players
 
@@ -63,8 +65,15 @@ def refresh_rankings(db: Session = Depends(get_db)) -> dict:
     }
 
 
+# Serialize live refreshes: SQLite allows only one writer, and the dashboard's
+# auto-refresh plus a manual click (or several devices) can otherwise fire
+# concurrent 30s ingests that collide with "database is locked". If a refresh is
+# already running, callers get the current universe instead of a second ingest.
+_refresh_lock = threading.Lock()
+
+
 @router.post("/refresh-live")
-def refresh_live() -> dict:
+def refresh_live(db: Session = Depends(get_db)) -> dict:
     """Pull fresh live data (Sleeper 2026 projections, 2025 stats, ADP, trending,
     injuries, and RSS news) and rebuild the player universe + rankings.
 
@@ -75,6 +84,22 @@ def refresh_live() -> dict:
 
     from ..ingest import run_ingest
 
+    if not _refresh_lock.acquire(blocking=False):
+        # A refresh is already in progress; return the current universe so the UI
+        # shows a real count instead of erroring or starting a colliding ingest.
+        players = db.query(Player).filter(Player.active).count()
+        news = db.query(NewsItem).count()
+        return {
+            "status": "busy",
+            "players": players,
+            "news": news,
+            "live_players": 0,
+            "live_news": 0,
+            "reason": "A live refresh is already running; showing the current data.",
+            "errors": [],
+            "elapsed_seconds": 0,
+        }
+
     try:
         result = run_ingest()
     except Exception as exc:  # noqa: BLE001 - surface the real reason to the client
@@ -82,6 +107,8 @@ def refresh_live() -> dict:
             status_code=503,
             detail=f"Live refresh failed: {type(exc).__name__}: {exc}",
         ) from exc
+    finally:
+        _refresh_lock.release()
     return {"status": "ok", **result}
 
 

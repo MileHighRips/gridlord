@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import time
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -72,6 +73,23 @@ def refresh_rankings(db: Session = Depends(get_db)) -> dict:
 _refresh_lock = threading.Lock()
 
 
+def _run_refresh_with_retry():
+    """Retry transient SQLite lock errors without exposing a noisy 500 to the UI."""
+    attempts = 0
+    while True:
+        try:
+            from ..ingest import run_ingest
+            return run_ingest()
+        except Exception as exc:  # noqa: BLE001 - surface the real reason to the client
+            message = str(exc).lower()
+            if "database is locked" not in message and "database is busy" not in message:
+                raise
+            attempts += 1
+            if attempts >= 3:
+                raise
+            time.sleep(1.5 * attempts)
+
+
 @router.post("/refresh-live")
 def refresh_live(db: Session = Depends(get_db)) -> dict:
     """Pull fresh live data (Sleeper 2026 projections, 2025 stats, ADP, trending,
@@ -81,8 +99,6 @@ def refresh_live(db: Session = Depends(get_db)) -> dict:
     docs/OPERATIONS.md) or trigger it from the dashboard Refresh button.
     """
     from fastapi import HTTPException
-
-    from ..ingest import run_ingest
 
     if not _refresh_lock.acquire(blocking=False):
         # A refresh is already in progress; return the current universe so the UI
@@ -101,7 +117,7 @@ def refresh_live(db: Session = Depends(get_db)) -> dict:
         }
 
     try:
-        result = run_ingest()
+        result = _run_refresh_with_retry()
     except Exception as exc:  # noqa: BLE001 - surface the real reason to the client
         raise HTTPException(
             status_code=503,

@@ -5,14 +5,14 @@ const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPERFLEX', 'K', 'DEF'];
 
 const GAGE_LEAGUE_PRESET: LS = {
   leagueName: 'The League',
-  teams: 14,
+  teams: 10,
   season: 2026,
   scoring: {
     type: 'PPR',
     rules: {
       pass_yd: 0.04,
       pass_td: 4,
-      interception: -4,
+      interception: -1,
       bonus_pass_yd_200: 3,
       bonus_pass_yd_250: 5,
       bonus_pass_yd_300: 7,
@@ -39,8 +39,8 @@ const GAGE_LEAGUE_PRESET: LS = {
       fg_50_plus: 5,
       fg_miss_0_19: -3,
       fg_miss_20_29: -3,
-      fg_miss_30_39: -3,
-      fg_miss_40_49: -3,
+      fg_miss_30_39: -2,
+      fg_miss_40_49: -2,
       fg_miss_50_plus: -3,
       pat_made: 1,
       pat_miss: -1,
@@ -49,7 +49,7 @@ const GAGE_LEAGUE_PRESET: LS = {
       fum_rec: 2,
       def_td: 6,
       safety: 2,
-      block_kick: 3,
+      block_kick: 2,
       def_return_td: 6,
       xp_returned: 2,
     },

@@ -34,7 +34,7 @@ def _norm(name: str) -> str:
 
 
 def _ensure_default_league(db: Session) -> None:
-    """Create the default league + 14 teams (Conner @ slot 7) if none exists."""
+    """Create the default league + 10 teams (Conner @ slot 9) if none exists."""
     from .defaults import DEFAULT_LEAGUE
     from .models import League, Team
     from .services import create_league_from_settings
@@ -42,8 +42,8 @@ def _ensure_default_league(db: Session) -> None:
     if db.query(League).count() > 0:
         return
     league = create_league_from_settings(db, DEFAULT_LEAGUE)
-    team_names = [f"Team {i}" for i in range(1, 15)]
-    team_names[6] = "Conner"
+    team_names = [f"Team {i}" for i in range(1, 11)]
+    team_names[8] = "Conner"  # draft slot 9
     for i, name in enumerate(team_names, start=1):
         db.add(
             Team(league_id=league.id, name=name, owner=name,

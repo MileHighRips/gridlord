@@ -17,7 +17,7 @@ from .schemas.league import (
 
 DEFAULT_LEAGUE = LeagueSettingsIn(
     leagueName="The League",
-    teams=14,
+    teams=10,
     season=2026,
     scoring=ScoringConfig(type="PPR", rules=DEFAULT_SCORING),
     roster=RosterConfig(

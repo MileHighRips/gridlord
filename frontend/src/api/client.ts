@@ -373,6 +373,7 @@ export const api = {
     request<{ status: string; players_ranked: number; top_player: string }>(
       '/api/projections/refresh',
       { method: 'POST' },
+      120000,
     ),
   refreshLive: async () => {
     try {
@@ -437,6 +438,7 @@ export const api = {
             method: 'PUT',
             body: JSON.stringify(settings),
           },
+          120000,
         ),
       () =>
         local.updateLeague(id, settings) as Promise<{
@@ -448,10 +450,14 @@ export const api = {
   createLeague: (settings: LeagueSettings) =>
     withFallback(
       () =>
-        request<{ id: number; name: string; settings: LeagueSettings }>('/api/leagues', {
-          method: 'POST',
-          body: JSON.stringify(settings),
-        }),
+        request<{ id: number; name: string; settings: LeagueSettings }>(
+          '/api/leagues',
+          {
+            method: 'POST',
+            body: JSON.stringify(settings),
+          },
+          120000,
+        ),
       () =>
         local.createLeague(settings) as Promise<{
           id: number;

@@ -6,9 +6,9 @@ import PositionBadge from '../components/PositionBadge';
 // recommendation for your slot with roster-need weighting + survival odds.
 export default function DraftRoom() {
   const [board, setBoard] = useState<RankingRow[]>([]);
-  const [numTeams, setNumTeams] = useState(14);
+  const [numTeams, setNumTeams] = useState(10);
   const [rounds, setRounds] = useState(16);
-  const [mySlot, setMySlot] = useState(7);
+  const [mySlot, setMySlot] = useState(9);
   const [draftType, setDraftType] = useState<'snake' | 'linear'>('snake');
   const [picks, setPicks] = useState<DraftPickIn[]>([]);
   const [rec, setRec] = useState<DraftRecommendResponse | null>(null);

@@ -9,7 +9,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from .config import settings
 
 _connect_args = (
-    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+    {"check_same_thread": False, "timeout": 60} if settings.database_url.startswith("sqlite") else {}
 )
 
 engine = create_engine(settings.sqlalchemy_url, connect_args=_connect_args, future=True)
@@ -20,13 +20,13 @@ if settings.database_url.startswith("sqlite"):
 
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragma(dbapi_connection, _connection_record):  # noqa: ANN001
-        """Enable WAL + a generous busy timeout so the long live-ingest write does
-        not collide with concurrent reads (health checks, rankings) and raise
-        ``database is locked`` on the single-worker Render host."""
+        """Use WAL and a long busy timeout so short write collisions between
+        refreshes and queued reads get resolved instead of surfacing a noisy
+        database-locked error to the user."""
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.execute("PRAGMA busy_timeout=60000")
             cursor.execute("PRAGMA synchronous=NORMAL")
         finally:
             cursor.close()

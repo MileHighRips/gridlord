@@ -65,9 +65,9 @@ def seed() -> None:
         league = existing or create_league_from_settings(db, DEFAULT_LEAGUE)
         print(f"Using league '{league.name}' (id={league.id}, {league.num_teams} teams)")
 
-        # Seed 14 teams; mark "Conner" as me at draft slot 7.
-        team_names = [f"Team {i}" for i in range(1, 15)]
-        team_names[6] = "Conner"
+        # Seed 10 teams; mark "Conner" as me at draft slot 9.
+        team_names = [f"Team {i}" for i in range(1, 11)]
+        team_names[8] = "Conner"
         for i, name in enumerate(team_names, start=1):
             db.add(Team(league_id=league.id, name=name, owner=name,
                         draft_slot=i, is_me=(name == "Conner")))

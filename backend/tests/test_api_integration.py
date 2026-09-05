@@ -68,7 +68,7 @@ def test_health(client):
 
 def test_default_league_endpoint(client):
     data = client.get("/api/leagues/defaults").json()
-    assert data["teams"] == 14
+    assert data["teams"] == 10
     assert data["scoring"]["type"] == "PPR"
 
 
@@ -98,6 +98,29 @@ def test_ranking_refresh_after_seed(client):
     assert len(rankings) > 0
     assert rankings[0]["rank"] == 1
     assert len(rankings[0]["drivers"]) >= 1
+
+
+def test_refresh_live_retries_transient_sqlite_lock(monkeypatch):
+    """A brief SQLite lock should be retried instead of surfacing a hard 500."""
+    import sqlite3
+
+    from app.routers import projections
+
+    calls = {"count": 0}
+
+    def fake_ingest():
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return {"players": 12, "news": 2, "live_players": 12, "live_news": 2,
+                "ecr_matched": 0, "buzz_matched": 0, "reason": None, "errors": [], "elapsed_seconds": 0.1}
+
+    monkeypatch.setattr("app.ingest.run_ingest", fake_ingest)
+    monkeypatch.setattr(projections.time, "sleep", lambda *_args, **_kwargs: None)
+
+    result = projections._run_refresh_with_retry()
+    assert result["players"] == 12
+    assert calls["count"] == 2
 
 
 def test_live_draft_recommendation(client):

@@ -57,7 +57,7 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-black">The League · 2026</h1>
           <p className="text-sm text-slate-400">
-            14-team H2H PPR w/ bonus yardage · backend{' '}
+            10-team H2H PPR w/ bonus yardage · backend{' '}
             <span className={online ? 'text-emerald-400' : 'text-rose-400'}>
               {online == null ? '…' : online ? 'online' : 'offline'}
             </span>

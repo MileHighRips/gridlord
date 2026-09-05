@@ -30,6 +30,8 @@ Pre-seeded with **"The League"** — a real 14-team H2H PPR league (bonus yardag
 
 ## 🌐 Open as a website (GitHub Pages)
 Live app: https://milehighrips.github.io/gridlord/
+Live backend API: https://gridlord-api.onrender.com/
+Health check: https://gridlord-api.onrender.com/health
 
 A workflow ([.github/workflows/pages.yml](.github/workflows/pages.yml)) builds and
 deploys the frontend on every push to `main`.
@@ -46,6 +48,9 @@ deploys the frontend on every push to `main`.
 
 The frontend needs a live backend for data. The fastest path is
 [render.yaml](render.yaml):
+
+- Live Render backend: https://gridlord-api.onrender.com/
+- Health check: https://gridlord-api.onrender.com/health
 
 1. In [Render](https://render.com): **New → Blueprint** → select this repo.
    It provisions a free Postgres + web service, seeds live data on boot, and

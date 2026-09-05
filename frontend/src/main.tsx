@@ -15,40 +15,32 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 );
 
-// Keep the installed app shell in sync with new deploys so Safari does not keep an
-// old cached dashboard that can render as a white screen.
+// Keep the installed app shell in sync with new deploys so phones never get
+// stranded on an old cached bundle — and so no manual "clear site data" is ever
+// needed. The service worker is network-first (see public/sw.js); here we make
+// the hand-off to a freshly deployed worker seamless and automatic.
 if ('serviceWorker' in navigator) {
+  const SW_RELOAD_KEY = 'gridlord_sw_reloaded';
+
+  // When a new worker takes control (after skipWaiting + clients.claim), reload
+  // once so the newest JS/CSS is running. The one-time guard prevents any loop.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (sessionStorage.getItem(SW_RELOAD_KEY) === '1') return;
+    sessionStorage.setItem(SW_RELOAD_KEY, '1');
+    window.location.reload();
+  });
+
   window.addEventListener('load', async () => {
     try {
-      const existing = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(existing.map((registration) => registration.unregister()));
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-
       const registration = await navigator.serviceWorker.register(
         `${import.meta.env.BASE_URL}sw.js`,
         { scope: import.meta.env.BASE_URL, updateViaCache: 'none' },
       );
 
-      // Always check for a newer service worker on load so a fresh deploy takes
-      // over immediately instead of a phone clinging to an old cached bundle.
-      registration.update().catch(() => {
-        /* best-effort */
-      });
-
-      const SW_RELOAD_KEY = 'gridlord_sw_reload_done';
-      registration.addEventListener('updatefound', () => {
-        const installing = registration.installing;
-        if (!installing) return;
-        installing.addEventListener('statechange', () => {
-          if (installing.state === 'activated' && navigator.serviceWorker.controller) {
-            if (sessionStorage.getItem(SW_RELOAD_KEY) !== '1') {
-              sessionStorage.setItem(SW_RELOAD_KEY, '1');
-              window.location.reload();
-            }
-          }
-        });
-      });
+      // Actively check for a newer worker on every load and again periodically,
+      // so a fresh deploy is picked up automatically without reopening the app.
+      registration.update().catch(() => undefined);
+      setInterval(() => registration.update().catch(() => undefined), 60_000);
     } catch {
       /* offline support is best-effort */
     }

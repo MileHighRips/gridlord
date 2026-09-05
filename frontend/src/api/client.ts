@@ -11,6 +11,10 @@ const LOCAL_API_CANDIDATES = [
 ];
 
 const API_BASE_KEY = 'gridlord_api_base';
+// Correct public Render service URL. The service is named "gridlord" so its host
+// is gridlord.onrender.com (an earlier build wrongly used gridlord-api...).
+const PROD_API_BASE = 'https://gridlord.onrender.com';
+const STALE_API_HOSTS = ['gridlord-api.onrender.com'];
 const CACHE_VERSION_KEY = 'gridlord_cache_version';
 const CACHE_VERSION = '2026-09-05-v2';
 const REFRESH_LIVE_CACHE_KEY = 'gridlord_refresh_live_cache';
@@ -44,6 +48,12 @@ function getStoredApiBase(): string | null {
   if (lower.includes('localhost') || lower.includes('127.0.0.1')) {
     return null;
   }
+  // Discard any previously-persisted base that points at a known-wrong host so a
+  // phone/browser that cached the old URL heals itself on the next load.
+  if (STALE_API_HOSTS.some((bad) => lower.includes(bad))) {
+    window.localStorage.removeItem(API_BASE_KEY);
+    return null;
+  }
 
   return normalized;
 }
@@ -62,14 +72,14 @@ export function resolveApiBase(): string {
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
-    if (host.includes('github.io')) return 'https://gridlord-api.onrender.com';
+    if (host.includes('github.io')) return PROD_API_BASE;
     if (host.includes('localhost') || host === '127.0.0.1') return LOCAL_API_CANDIDATES[0];
   }
 
   const stored = getStoredApiBase();
   if (stored) return stored;
 
-  return 'https://gridlord-api.onrender.com';
+  return PROD_API_BASE;
 }
 
 let BASE = resolveApiBase();
@@ -137,7 +147,7 @@ async function request<T>(
       throw err;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      if (base === 'https://gridlord-api.onrender.com') {
+      if (base === PROD_API_BASE) {
         throw lastError;
       }
     } finally {

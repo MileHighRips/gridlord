@@ -30,8 +30,8 @@ Pre-seeded with **"The League"** — a real 14-team H2H PPR league (bonus yardag
 
 ## 🌐 Open as a website (GitHub Pages)
 Live app: https://milehighrips.github.io/gridlord/
-Live backend API: https://gridlord-api.onrender.com/
-Health check: https://gridlord-api.onrender.com/health
+Live backend API: https://gridlord.onrender.com/
+Health check: https://gridlord.onrender.com/health
 
 A workflow ([.github/workflows/pages.yml](.github/workflows/pages.yml)) builds and
 deploys the frontend on every push to `main`.
@@ -49,13 +49,13 @@ deploys the frontend on every push to `main`.
 The frontend needs a live backend for data. The fastest path is
 [render.yaml](render.yaml):
 
-- Live Render backend: https://gridlord-api.onrender.com/
-- Health check: https://gridlord-api.onrender.com/health
+- Live Render backend: https://gridlord.onrender.com/
+- Health check: https://gridlord.onrender.com/health
 
 1. In [Render](https://render.com): **New → Blueprint** → select this repo.
    It provisions a free Postgres + web service, seeds live data on boot, and
    serves the API with a `/health` check.
-2. Copy the deployed web service URL (e.g. `https://gridlord-api.onrender.com`).
+2. Copy the deployed web service URL (e.g. `https://gridlord.onrender.com`).
 3. In GitHub: **Settings → Secrets and variables → Actions → Variables** → set
    `API_BASE` to that URL, then re-run the **Deploy frontend to GitHub Pages**
    workflow (Actions tab → Run workflow).

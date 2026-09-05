@@ -20,6 +20,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
+      const existing = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(existing.map((registration) => registration.unregister()));
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+
       const registration = await navigator.serviceWorker.register(
         `${import.meta.env.BASE_URL}sw.js`,
         { scope: import.meta.env.BASE_URL },

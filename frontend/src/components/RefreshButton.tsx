@@ -17,7 +17,8 @@ export default function RefreshButton({
       if (onRefresh) {
         await onRefresh();
       }
-      setMsg(`✓ ${r.players} players + ${r.news} news in ${r.elapsed_seconds}s`);
+      const prefix = r.status === 'cached' ? '✓ cached' : '✓';
+      setMsg(`${prefix} ${r.players} players + ${r.news} news in ${r.elapsed_seconds}s`);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {

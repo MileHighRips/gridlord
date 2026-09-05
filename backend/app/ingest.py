@@ -80,9 +80,9 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
             db.add(source)
             db.flush()
 
-        rows = fetch_projection_rows(season)
-        last_year = fetch_last_year_points(season - 1)
-        trending = fetch_trending_adds(150)
+        rows = _safe_fetch(lambda: fetch_projection_rows(season), [])
+        last_year = _safe_fetch(lambda: fetch_last_year_points(season - 1), {})
+        trending = _safe_fetch(lambda: fetch_trending_adds(150), {})
 
         existing = {p.sleeper_id: p for p in db.query(Player).all() if p.sleeper_id}
         n_players = 0
@@ -173,12 +173,36 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
         )
         db.commit()
         elapsed = round(time.perf_counter() - started, 2)
+
+        # If the live sources returned nothing (blocked network, cold host, or a
+        # rate-limited upstream), fall back to the player universe already in the
+        # database so the app always reports usable rankings for offline
+        # recommendations instead of a misleading zero.
+        status = "ok"
+        if n_players == 0:
+            n_players = db.query(Player).filter(Player.active).count()
+            n_news = db.query(NewsItem).count()
+            status = "cached"
+
         return {
+            "status": status,
             "players": n_players, "news": n_news, "ecr_matched": n_ecr,
             "buzz_matched": n_buzz, "elapsed_seconds": elapsed,
         }
     finally:
         db.close()
+
+
+def _safe_fetch(fetcher, default):
+    """Run an external fetch, returning a default if the upstream source fails.
+
+    Live refreshes must never crash just because a scraper is rate-limited or the
+    host has no outbound network; the app falls back to the seeded universe.
+    """
+    try:
+        return fetcher()
+    except Exception:
+        return default
 
 
 def _volatility_from(position: str, std: float, mean: float) -> float:

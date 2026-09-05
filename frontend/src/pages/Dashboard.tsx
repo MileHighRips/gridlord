@@ -16,11 +16,24 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    api
-      .health()
-      .then(() => setOnline(true))
-      .catch(() => setOnline(false));
-    void loadDashboard();
+    const boot = async () => {
+      try {
+        await api.health();
+        setOnline(true);
+      } catch {
+        setOnline(false);
+      }
+
+      try {
+        await api.refreshLive();
+      } catch {
+        // Fall back to the last cached data if the backend is unavailable.
+      } finally {
+        await loadDashboard();
+      }
+    };
+
+    void boot();
   }, []);
 
   return (

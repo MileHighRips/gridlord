@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..engine.draft_engine import DraftContext, draft_intel, recommend, simulate_mock_draft
+from ..models import League, RosterSlot
 from ..schemas.draft import (
     DraftRecommendation,
     DraftRecommendResponse,
@@ -31,6 +32,13 @@ def recommend_pick(
     ranked = load_ranked_players(db)
     ranked_by_id = {r.player_id: r for r in ranked}
 
+    league = db.get(League, state.league_id)
+    starter_needs = {
+        slot.position: slot.count for slot in (league.roster_slots if league else [])
+    }
+    if not starter_needs:
+        starter_needs = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "K": 1, "DEF": 1}
+
     drafted_ids = {pk.player_id for pk in state.picks_made}
     available = [r for r in ranked if r.player_id not in drafted_ids]
 
@@ -46,8 +54,12 @@ def recommend_pick(
     )
 
     recs, meta = recommend(
-        available=available, ctx=ctx, picks_made=len(state.picks_made),
-        my_positions=my_positions, position_filter=state.position_filter,
+        available=available,
+        ctx=ctx,
+        picks_made=len(state.picks_made),
+        my_positions=my_positions,
+        starter_needs=starter_needs,
+        position_filter=state.position_filter,
     )
 
     # Opponent modeling + positional scarcity forecast.
@@ -65,6 +77,7 @@ def recommend_pick(
         my_slot=state.my_slot,
         current_overall=len(state.picks_made) + 1,
         my_next_overall=meta["your_next_overall_pick"] or None,
+        snake=state.draft_type.lower() == "snake",
     )
 
     def to_schema(rec) -> DraftRecommendation:

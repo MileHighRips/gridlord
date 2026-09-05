@@ -109,10 +109,16 @@ def update_league(
         s.ir_slots = settings.roster.ir_slots
         s.waiver_type = settings.waiver.type
         s.faab_budget = settings.waiver.budget
+        s.waiver_reset = settings.waiver.reset
+        s.waiver_process_day = settings.waiver.process_day
+        s.waiver_clear_days = settings.waiver.clear_days
         s.trade_review = settings.trades.review
+        s.trade_veto_votes = settings.trades.veto_votes
         s.trade_reject_days = settings.trades.reject_days
         s.trade_deadline = settings.trades.deadline
+        s.allow_draft_pick_trades = settings.trades.allow_draft_pick_trades
         s.keeper_count = settings.keepers.count
+        s.keeper_cost_rule = settings.keepers.cost_increase
         s.playoff_teams = settings.playoff_teams
         s.playoff_start_week = settings.playoff_start_week
         s.playoff_end_week = settings.playoff_end_week

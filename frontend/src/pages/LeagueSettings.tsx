@@ -131,12 +131,22 @@ export default function LeagueSettings() {
     if (!s) return;
     setStatus('Saving…');
     try {
-      if (leagueId) await api.updateLeague(leagueId, s);
-      else {
-        const created = await api.createLeague(s);
-        setLeagueId(created.id);
+      let saved:
+        | { id: number; name: string; settings: LS }
+        | null = null;
+
+      if (leagueId) {
+        saved = await api.updateLeague(leagueId, s);
+      } else {
+        saved = await api.createLeague(s);
+        setLeagueId(saved.id);
       }
-      setStatus('✓ Saved — rankings now use these rules');
+
+      const nextSettings = saved?.settings ?? s;
+      setDefaultSettings(nextSettings);
+      setS(nextSettings);
+      await api.refreshRankings();
+      setStatus('✓ Saved — rankings refreshed for these settings');
     } catch (e) {
       setStatus((e as Error).message);
     }

@@ -7,6 +7,7 @@ from app.engine.draft_engine import (
     overall_picks_for_slot,
     position_value_multiplier,
     roster_needs,
+    slot_for_overall,
     survival_probability,
 )
 from app.engine.montecarlo import TeamSeasonInput, simulate_season
@@ -26,6 +27,14 @@ def test_snake_pick_math_slot7_of_14():
 def test_next_pick_after_made():
     nxt = next_pick_for_slot(7, num_teams=14, rounds=16, picks_made=7)
     assert nxt == 22
+
+
+def test_snake_slot_for_overall_uses_reverse_direction():
+    assert slot_for_overall(1, num_teams=14, snake=True) == 1
+    assert slot_for_overall(8, num_teams=14, snake=True) == 8
+    assert slot_for_overall(15, num_teams=14, snake=True) == 14
+    assert slot_for_overall(22, num_teams=14, snake=True) == 7
+    assert slot_for_overall(29, num_teams=14, snake=True) == 1
 
 
 def test_roster_needs_flex_absorption():

@@ -65,6 +65,15 @@ def overall_picks_for_slot(
     return picks
 
 
+def slot_for_overall(overall: int, num_teams: int, snake: bool = True) -> int:
+    """Return the slot that owns a given 1-based overall pick."""
+    rnd = (overall - 1) // num_teams + 1
+    pos_in_round = (overall - 1) % num_teams + 1
+    if snake and rnd % 2 == 0:
+        return num_teams - pos_in_round + 1
+    return pos_in_round
+
+
 def next_pick_for_slot(
     slot: int, num_teams: int, rounds: int, picks_made: int, snake: bool = True
 ) -> int | None:
@@ -299,19 +308,25 @@ def _championship_strategy_multiplier(
         counts[pos] = counts.get(pos, 0) + 1
 
     need_gap = max((starter_needs.get(position, 0) or 1) - counts.get(position, 0), 0)
-    flex_gap = max(starter_needs.get("FLEX", 0) - max(0, counts.get("RB", 0) - (starter_needs.get("RB", 0) or 1)) - max(0, counts.get("WR", 0) - (starter_needs.get("WR", 0) or 1)) - max(0, counts.get("TE", 0) - (starter_needs.get("TE", 0) or 1)), 0)
+    flex_gap = max(
+        starter_needs.get("FLEX", 0)
+        - max(0, counts.get("RB", 0) - (starter_needs.get("RB", 0) or 1))
+        - max(0, counts.get("WR", 0) - (starter_needs.get("WR", 0) or 1))
+        - max(0, counts.get("TE", 0) - (starter_needs.get("TE", 0) or 1)),
+        0,
+    )
 
     base = 1.0
     if need_gap > 0:
-        base += 0.32 * need_gap
+        base += 0.45 * need_gap
     if position in FLEX_ELIGIBLE and flex_gap > 0:
-        base += 0.18
+        base += 0.24
     if position in ("RB", "WR") and current_round <= 6:
-        base += 0.2
+        base += 0.35
     if position == "QB" and current_round <= 4:
-        base += 0.1
+        base += 0.18
     if position == "TE" and current_round <= 6:
-        base += 0.12
+        base += 0.18
     if position in ("K", "DEF"):
         return 0.7
     return round(base, 3)
@@ -333,12 +348,15 @@ def recommend(
     starter_needs = starter_needs or DEFAULT_STARTER_NEEDS
     needs = roster_needs(my_positions, starter_needs)
     current_overall = picks_made + 1
+    snake = ctx.draft_type.lower() == "snake"
     my_next = next_pick_for_slot(
-        ctx.my_slot, ctx.num_teams, ctx.rounds, picks_made, ctx.draft_type == "snake"
+        ctx.my_slot, ctx.num_teams, ctx.rounds, picks_made, snake
     )
     on_the_clock = my_next == current_overall
     picks_until_next = 0 if my_next is None else max(my_next - current_overall, 0)
     current_round = (picks_made // ctx.num_teams) + 1
+    if snake and current_overall > 0:
+        current_round = ((current_overall - 1) // ctx.num_teams) + 1
 
     pool = available
     if position_filter:
@@ -363,14 +381,17 @@ def recommend(
 
         # Pro-strategy composite: value + roster need + scarcity + timing + survival.
         late_round_bias = 1.0 if current_round <= 12 else 0.94
-        safety_bonus = 1.0 + (0.15 if risk == "safe" else 0.07 if risk == "slight_reach" else 0.0)
+        championship_bias = 1.0 + max(0.0, strategy - 1.0) * 0.8
+        safety_bonus = 1.0 + (0.18 if risk == "safe" else 0.09 if risk == "slight_reach" else 0.0)
         nwv = round(
-            p.vorp * mult * scarce * timing * strategy * late_round_bias * (0.75 + 0.5 * surv) * safety_bonus,
+            p.vorp * mult * scarce * timing * strategy * championship_bias * late_round_bias * (0.75 + 0.5 * surv) * safety_bonus,
             2,
         )
 
         drivers = list(p.drivers[:1])
         drivers.append(reason)
+        if strategy > 1.3:
+            drivers.append("Championship build: this pick aligns with your title-winning roster plan")
         if p.adp is not None and my_next:
             drivers.append(
                 f"ADP {p.adp:.0f}; ~{surv:.0%} chance to survive to pick {my_next}"
@@ -472,10 +493,12 @@ def simulate_mock_draft(
 # --------------------------------------------------------------------------- #
 # Opponent modeling + positional scarcity forecast
 # --------------------------------------------------------------------------- #
-def _slot_for_overall(overall: int, num_teams: int) -> int:
+def _slot_for_overall(overall: int, num_teams: int, snake: bool = True) -> int:
     rnd = (overall - 1) // num_teams + 1
     pir = (overall - 1) % num_teams + 1
-    return pir if rnd % 2 == 1 else num_teams - pir + 1
+    if snake and rnd % 2 == 0:
+        return num_teams - pir + 1
+    return pir
 
 
 def _predict_next_position(counts: dict[str, int], rounds_done: int) -> str:
@@ -499,6 +522,7 @@ def draft_intel(
     my_slot: int,
     current_overall: int,
     my_next_overall: int | None,
+    snake: bool = True,
 ) -> dict:
     """Opponent tendencies + predicted upcoming picks + positional run forecast."""
     # Build each slot's positional counts so far.
@@ -542,7 +566,7 @@ def draft_intel(
     sim_counts = {s: dict(c) for s, c in tendencies.items()}
     if my_next_overall:
         for overall in range(current_overall, my_next_overall):
-            slot = _slot_for_overall(overall, num_teams)
+            slot = _slot_for_overall(overall, num_teams, snake)
             if slot == my_slot:
                 continue
             counts = sim_counts.setdefault(slot, {})

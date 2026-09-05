@@ -1,23 +1,53 @@
 // Typed API client for the GRIDLORD backend.
 import { local } from '../static/localData';
 
+const LOCAL_API_CANDIDATES = [
+  'http://localhost:8000',
+  'http://localhost:8001',
+  'http://localhost:8002',
+  'http://127.0.0.1:8000',
+  'http://127.0.0.1:8001',
+  'http://127.0.0.1:8002',
+];
+
+const API_BASE_KEY = 'gridlord_api_base';
+const CACHE_KEYS = {
+  rankings: 'gridlord_rankings_cache',
+  hiddenGems: 'gridlord_hidden_gems_cache',
+  news: 'gridlord_news_cache',
+  injuries: 'gridlord_injuries_cache',
+};
+
+function getStoredApiBase(): string | null {
+  if (typeof window === 'undefined') return null;
+  const stored = window.localStorage.getItem(API_BASE_KEY)?.trim();
+  return stored ? stored.replace(/\/+$/, '') : null;
+}
+
+function persistApiBase(base: string): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(API_BASE_KEY, base.replace(/\/+$/, ''));
+}
+
 export function resolveApiBase(): string {
   const configured = import.meta.env.VITE_API_BASE?.trim();
   if (configured) return configured.replace(/\/+$/, '');
 
-  if (import.meta.env.DEV) return 'http://localhost:8000';
+  const stored = getStoredApiBase();
+  if (stored) return stored;
+
+  if (import.meta.env.DEV) return LOCAL_API_CANDIDATES[0];
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     if (host.includes('github.io')) return 'https://gridlord-api.onrender.com';
-    if (host.includes('localhost') || host === '127.0.0.1')
-      return 'http://localhost:8000';
+    if (host.includes('localhost') || host === '127.0.0.1') return LOCAL_API_CANDIDATES[0];
   }
 
   return 'https://gridlord-api.onrender.com';
 }
 
-const BASE = resolveApiBase();
+let BASE = resolveApiBase();
 
 const TOKEN_KEY = 'gridlord_token';
 
@@ -43,32 +73,94 @@ export const tokenStore = {
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = tokenStore.get();
-  // Fail fast so the static fallback kicks in quickly when there's no backend.
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 3500);
-  try {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      signal: ctrl.signal,
-      ...options,
-    });
-    if (!res.ok) {
+  const candidates = Array.from(
+    new Set([
+      BASE,
+      ...LOCAL_API_CANDIDATES.filter((candidate) => candidate !== BASE),
+      ...(typeof window !== 'undefined' ? [getStoredApiBase() ?? ''] : []),
+    ].filter(Boolean)),
+  ) as string[];
+
+  let lastError: Error | null = null;
+  for (const base of candidates) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3500);
+    try {
+      const res = await fetch(`${base}${path}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        signal: ctrl.signal,
+        ...options,
+      });
+      if (res.ok) {
+        BASE = base;
+        persistApiBase(base);
+        return res.json() as Promise<T>;
+      }
       const text = await res.text();
-      throw new Error(`${res.status} ${res.statusText}: ${text}`);
+      const err = new Error(`${res.status} ${res.statusText}: ${text}`);
+      if (base.startsWith('http://localhost:') || base.startsWith('http://127.0.0.1:')) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (base === 'https://gridlord-api.onrender.com') {
+        throw lastError;
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    return res.json() as Promise<T>;
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw lastError ?? new Error(`API request failed for ${path}`);
 }
 
 // Try the live API; if it's unreachable (e.g. static PWA on a phone), fall back
 // to the on-device engine using the baked-in data snapshot.
+function readCache<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage quota issues.
+  }
+}
+
 function withFallback<T>(live: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
   return live().catch(fallback);
+}
+
+function withCache<T>(
+  key: string,
+  live: () => Promise<T>,
+  fallback: () => Promise<T>,
+): Promise<T> {
+  return withFallback(
+    async () => {
+      const value = await live();
+      writeCache(key, value);
+      return value;
+    },
+    async () => {
+      const cached = readCache<T>(key);
+      if (cached !== null) return cached;
+      return fallback();
+    },
+  );
 }
 
 export interface RankingRow {
@@ -227,7 +319,8 @@ export interface LeagueSettings {
 export const api = {
   health: () => request<{ status: string }>('/health'),
   rankings: (position?: string) =>
-    withFallback(
+    withCache(
+      `${CACHE_KEYS.rankings}${position ? `:${position}` : ''}`,
       () =>
         request<RankingRow[]>(
           `/api/projections/rankings${position ? `?position=${position}` : ''}`,
@@ -251,17 +344,20 @@ export const api = {
       async () => ({ status: 'snapshot', players: 0, news: 0, elapsed_seconds: 0 }),
     ),
   hiddenGems: () =>
-    withFallback(
+    withCache(
+      CACHE_KEYS.hiddenGems,
       () => request<Record<string, unknown>[]>('/api/projections/hidden-gems'),
       () => local.hiddenGems(),
     ),
   news: (tag?: string) =>
-    withFallback(
+    withCache(
+      `${CACHE_KEYS.news}${tag ? `:${tag}` : ''}`,
       () => request<NewsRow[]>(`/api/news${tag ? `?tag=${tag}` : ''}`),
       () => local.news(tag),
     ),
   injuries: () =>
-    withFallback(
+    withCache(
+      CACHE_KEYS.injuries,
       () => request<InjuryRow[]>('/api/news/injuries'),
       () => local.injuries(),
     ),
@@ -277,17 +373,20 @@ export const api = {
   updateLeague: (id: number, settings: LeagueSettings) =>
     withFallback(
       () =>
-        request(`/api/leagues/${id}`, { method: 'PUT', body: JSON.stringify(settings) }),
-      () => local.updateLeague(id, settings),
+        request<{ id: number; name: string; settings: LeagueSettings }>(`/api/leagues/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(settings),
+        }),
+      () => local.updateLeague(id, settings) as Promise<{ id: number; name: string; settings: LeagueSettings }>,
     ),
   createLeague: (settings: LeagueSettings) =>
     withFallback(
       () =>
-        request<{ id: number }>('/api/leagues', {
+        request<{ id: number; name: string; settings: LeagueSettings }>('/api/leagues', {
           method: 'POST',
           body: JSON.stringify(settings),
         }),
-      () => local.createLeague(settings),
+      () => local.createLeague(settings) as Promise<{ id: number; name: string; settings: LeagueSettings }>,
     ),
   importLeague: (provider: string, leagueSettingsJson: unknown) =>
     request('/api/leagues/import', {

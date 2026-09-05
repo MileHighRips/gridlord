@@ -9,6 +9,7 @@ export default function DraftRoom() {
   const [numTeams, setNumTeams] = useState(14);
   const [rounds, setRounds] = useState(16);
   const [mySlot, setMySlot] = useState(7);
+  const [draftType, setDraftType] = useState<'snake' | 'linear'>('snake');
   const [picks, setPicks] = useState<DraftPickIn[]>([]);
   const [rec, setRec] = useState<DraftRecommendResponse | null>(null);
   const [search, setSearch] = useState('');
@@ -24,7 +25,7 @@ export default function DraftRoom() {
 
   const draftedIds = useMemo(() => new Set(picks.map((p) => p.player_id)), [picks]);
   const nextOverall = picks.length + 1;
-  const slotOnClock = slotForOverall(nextOverall, numTeams);
+  const slotOnClock = slotForOverall(nextOverall, numTeams, draftType);
 
   const available = useMemo(
     () =>
@@ -44,7 +45,7 @@ export default function DraftRoom() {
         num_teams: numTeams,
         rounds,
         my_slot: mySlot,
-        draft_type: 'snake',
+        draft_type: draftType,
         picks_made: nextPicks,
         position_filter: posFilter ? [posFilter] : null,
       });
@@ -58,12 +59,13 @@ export default function DraftRoom() {
   useEffect(() => {
     if (board.length) refreshRec();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.length, numTeams, rounds, mySlot, posFilter]);
+  }, [board.length, numTeams, rounds, mySlot, posFilter, draftType]);
 
   function recordPick(player: RankingRow) {
+    const currentSlot = slotForOverall(nextOverall, numTeams, draftType);
     const next = [
       ...picks,
-      { overall_pick: nextOverall, player_id: player.player_id, slot: slotOnClock },
+      { overall_pick: nextOverall, player_id: player.player_id, slot: currentSlot },
     ];
     setPicks(next);
     refreshRec(next);
@@ -109,6 +111,16 @@ export default function DraftRoom() {
               max={numTeams}
               onChange={(e) => setMySlot(+e.target.value)}
             />
+          </Field>
+          <Field label="Draft type">
+            <select
+              className="input"
+              value={draftType}
+              onChange={(e) => setDraftType(e.target.value as 'snake' | 'linear')}
+            >
+              <option value="snake">Snake</option>
+              <option value="linear">Linear</option>
+            </select>
           </Field>
           <button className="btn-ghost" onClick={undo} disabled={!picks.length}>
             ↩ Undo pick
@@ -322,10 +334,17 @@ export default function DraftRoom() {
   );
 }
 
-function slotForOverall(overall: number, numTeams: number): number {
+function slotForOverall(
+  overall: number,
+  numTeams: number,
+  draftType: 'snake' | 'linear' = 'snake',
+): number {
   const rnd = Math.floor((overall - 1) / numTeams) + 1;
   const posInRound = ((overall - 1) % numTeams) + 1;
-  return rnd % 2 === 1 ? posInRound : numTeams - posInRound + 1;
+  if (draftType === 'linear' || rnd % 2 === 1) {
+    return posInRound;
+  }
+  return numTeams - posInRound + 1;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

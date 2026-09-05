@@ -12,7 +12,8 @@ const LOCAL_API_CANDIDATES = [
 
 const API_BASE_KEY = 'gridlord_api_base';
 const CACHE_VERSION_KEY = 'gridlord_cache_version';
-const CACHE_VERSION = '2026-09-05-v1';
+const CACHE_VERSION = '2026-09-05-v2';
+const REFRESH_LIVE_CACHE_KEY = 'gridlord_refresh_live_cache';
 const CACHE_KEYS = {
   rankings: 'gridlord_rankings_cache',
   hiddenGems: 'gridlord_hidden_gems_cache',
@@ -34,28 +35,39 @@ refreshCacheIfNeeded();
 function getStoredApiBase(): string | null {
   if (typeof window === 'undefined') return null;
   const stored = window.localStorage.getItem(API_BASE_KEY)?.trim();
-  return stored ? stored.replace(/\/+$/, '') : null;
+  if (!stored) return null;
+
+  const normalized = stored.replace(/\/+$/, '');
+  if (!normalized) return null;
+
+  const lower = normalized.toLowerCase();
+  if (lower.includes('localhost') || lower.includes('127.0.0.1')) {
+    return null;
+  }
+
+  return normalized;
 }
 
 function persistApiBase(base: string): void {
   if (typeof window === 'undefined') return;
-  window.localStorage.setItem(API_BASE_KEY, base.replace(/\/+$/, ''));
+  const normalized = base.replace(/\/+$/, '');
+
+  if (!normalized) return;
+  window.localStorage.setItem(API_BASE_KEY, normalized);
 }
 
 export function resolveApiBase(): string {
   const configured = import.meta.env.VITE_API_BASE?.trim();
   if (configured) return configured.replace(/\/+$/, '');
 
-  const stored = getStoredApiBase();
-  if (stored) return stored;
-
-  if (import.meta.env.DEV) return LOCAL_API_CANDIDATES[0];
-
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     if (host.includes('github.io')) return 'https://gridlord-api.onrender.com';
     if (host.includes('localhost') || host === '127.0.0.1') return LOCAL_API_CANDIDATES[0];
   }
+
+  const stored = getStoredApiBase();
+  if (stored) return stored;
 
   return 'https://gridlord-api.onrender.com';
 }
@@ -345,23 +357,37 @@ export const api = {
       '/api/projections/refresh',
       { method: 'POST' },
     ),
-  refreshLive: () =>
-    withFallback(
-      async () => {
-        const data = await request<{
+  refreshLive: async () => {
+    try {
+      const data = await request<{
+        status: string;
+        players: number;
+        news: number;
+        elapsed_seconds: number;
+      }>('/api/projections/refresh-live', { method: 'POST' });
+
+      if (typeof window !== 'undefined') {
+        Object.values(CACHE_KEYS).forEach((key) => window.localStorage.removeItem(key));
+        window.localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
+        writeCache(REFRESH_LIVE_CACHE_KEY, data);
+      }
+      return data;
+    } catch (error) {
+      if (typeof window !== 'undefined') {
+        const cached = readCache<{
           status: string;
           players: number;
           news: number;
           elapsed_seconds: number;
-        }>('/api/projections/refresh-live', { method: 'POST' });
-        if (typeof window !== 'undefined') {
-          Object.values(CACHE_KEYS).forEach((key) => window.localStorage.removeItem(key));
-          window.localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
-        }
-        return data;
-      },
-      async () => ({ status: 'snapshot', players: 0, news: 0, elapsed_seconds: 0 }),
-    ),
+        }>(REFRESH_LIVE_CACHE_KEY);
+        if (cached) return cached;
+      }
+
+      throw new Error(
+        error instanceof Error ? error.message : 'Live refresh is unavailable right now.',
+      );
+    }
+  },
   hiddenGems: () =>
     withCache(
       CACHE_KEYS.hiddenGems,

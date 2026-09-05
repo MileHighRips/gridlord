@@ -1,6 +1,7 @@
-// GRIDLORD service worker — keep the app shell fresh so old cached builds do not
-// leave Safari users stranded on a blank screen after a deploy.
-const CACHE = 'gridlord-v4';
+// GRIDLORD service worker — network-first so a new deploy always wins and phones
+// never get stranded on a stale cached JS bundle. The cache is only an offline
+// fallback, never the source of truth while the network is reachable.
+const CACHE = 'gridlord-v5';
 const SHELL = ['./', './index.html', './gridlord.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -27,29 +28,20 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET' || url.pathname.startsWith('/api')) return;
 
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html'))),
-    );
-    return;
-  }
-
+  // Network-first for everything the app serves (HTML + hashed JS/CSS/assets).
+  // Content-hashed filenames make fresh fetches safe, and this guarantees a new
+  // build immediately replaces the old one on every device, including phones.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match('./'));
-    }),
+    fetch(request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE).then((cache) => cache.put(request, copy));
+        return response;
+      })
+      .catch(() =>
+        caches
+          .match(request)
+          .then((cached) => cached || (request.mode === 'navigate' ? caches.match('./index.html') : undefined)),
+      ),
   );
 });

@@ -27,8 +27,14 @@ if ('serviceWorker' in navigator) {
 
       const registration = await navigator.serviceWorker.register(
         `${import.meta.env.BASE_URL}sw.js`,
-        { scope: import.meta.env.BASE_URL },
+        { scope: import.meta.env.BASE_URL, updateViaCache: 'none' },
       );
+
+      // Always check for a newer service worker on load so a fresh deploy takes
+      // over immediately instead of a phone clinging to an old cached bundle.
+      registration.update().catch(() => {
+        /* best-effort */
+      });
 
       const SW_RELOAD_KEY = 'gridlord_sw_reload_done';
       registration.addEventListener('updatefound', () => {

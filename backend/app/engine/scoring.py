@@ -19,7 +19,7 @@ DEFAULT_SCORING: dict[str, float] = {
     # Passing
     "pass_yd": 0.04,  # 25 yards per point
     "pass_td": 4.0,
-    "interception": -4.0,
+    "interception": -1.0,
     "bonus_pass_yd_200": 3.0,
     "bonus_pass_yd_250": 5.0,
     "bonus_pass_yd_300": 7.0,
@@ -51,8 +51,8 @@ DEFAULT_SCORING: dict[str, float] = {
     # Kicker — misses by distance
     "fg_miss_0_19": -3.0,
     "fg_miss_20_29": -3.0,
-    "fg_miss_30_39": -3.0,
-    "fg_miss_40_49": -3.0,
+    "fg_miss_30_39": -2.0,
+    "fg_miss_40_49": -2.0,
     "fg_miss_50_plus": -3.0,
     "pat_made": 1.0,
     "pat_miss": -1.0,
@@ -62,7 +62,7 @@ DEFAULT_SCORING: dict[str, float] = {
     "fum_rec": 2.0,
     "def_td": 6.0,
     "safety": 2.0,
-    "block_kick": 3.0,
+    "block_kick": 2.0,
     "def_return_td": 6.0,
     "xp_returned": 2.0,
 }

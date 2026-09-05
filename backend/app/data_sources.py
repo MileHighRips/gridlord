@@ -192,7 +192,7 @@ def score_defense(stats: dict[str, Any]) -> float:
         + float(stats.get("fum_rec", 0) or 0) * 2
         + float(stats.get("def_fum_td", 0) or 0) * 6
         + float(stats.get("def_kr_td", 0) or 0) * 6
-        + float(stats.get("blk_kick", 0) or 0) * 3
+        + float(stats.get("blk_kick", 0) or 0) * 2
     )
     # Points-allowed buckets are counts of games in each tier.
     pa_buckets = {

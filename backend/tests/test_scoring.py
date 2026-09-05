@@ -35,9 +35,9 @@ def test_passing_with_interceptions_negative():
     result = score_stat_line(line)
     assert result.components["pass_yd"] == 12.0  # 300 * 0.04
     assert result.components["pass_td"] == 8.0
-    assert result.components["interception"] == -8.0  # 2 * -4
+    assert result.components["interception"] == -2.0  # 2 * -1
     assert result.components["bonus_pass_yd_300"] == 7.0
-    assert result.total == 19.0
+    assert result.total == 25.0
 
 
 def test_kicker_distance_buckets():
@@ -75,6 +75,6 @@ def test_fractional_toggle():
 
 def test_default_scoring_matches_league():
     assert DEFAULT_SCORING["reception"] == 1.0
-    assert DEFAULT_SCORING["interception"] == -4.0
+    assert DEFAULT_SCORING["interception"] == -1.0
     assert DEFAULT_SCORING["rush_td"] == 6.0
     assert DEFAULT_SCORING["pass_yd"] == 0.04

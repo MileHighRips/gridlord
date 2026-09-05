@@ -86,6 +86,19 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
         last_year = _safe_fetch(lambda: fetch_last_year_points(season - 1), {}, "last_year_stats", errors)
         trending = _safe_fetch(lambda: fetch_trending_adds(150), {}, "trending_adds", errors)
 
+        # Clean up any duplicate player rows left by an interrupted or previously
+        # concurrent ingest so the same player can never rank twice.
+        _dedupe_players(db)
+
+        # Collapse any duplicate incoming rows (same sleeper_id) to the highest
+        # projection so a single upstream glitch cannot create a double entry.
+        deduped: dict[str, "PlayerProjectionRow"] = {}
+        for r in rows:
+            prev = deduped.get(r.sleeper_id)
+            if prev is None or r.mean_points > prev.mean_points:
+                deduped[r.sleeper_id] = r
+        rows = list(deduped.values())
+
         existing = {p.sleeper_id: p for p in db.query(Player).all() if p.sleeper_id}
         n_players = 0
         for r in rows:
@@ -221,6 +234,42 @@ def _safe_fetch(fetcher, default, label: str = "", errors: list[str] | None = No
         if errors is not None:
             errors.append(f"{label or 'source'}: {type(exc).__name__}: {exc}".strip())
         return default
+
+
+def _dedupe_players(db: Session) -> int:
+    """Deactivate duplicate player rows that share a normalized name + position.
+
+    An interrupted or previously concurrent ingest could create two rows for the
+    same player (e.g. two "Bijan Robinson" RBs). Keep the best-projected row (then
+    the one with a sleeper_id) and deactivate the rest so a player never ranks
+    twice. Returns the number of rows deactivated.
+    """
+    proj_by_player = {
+        pr.player_id: pr.mean_points
+        for pr in db.query(Projection).filter(Projection.week == 0).all()
+    }
+    groups: dict[tuple[str, str], list[Player]] = {}
+    for p in db.query(Player).filter(Player.active).all():
+        groups.setdefault((_norm(p.name), p.position), []).append(p)
+
+    removed = 0
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        group.sort(
+            key=lambda pl: (
+                proj_by_player.get(pl.id, 0.0),
+                1 if pl.sleeper_id else 0,
+                pl.id,
+            ),
+            reverse=True,
+        )
+        for extra in group[1:]:
+            extra.active = False
+            removed += 1
+    if removed:
+        db.flush()
+    return removed
 
 
 def _volatility_from(position: str, std: float, mean: float) -> float:

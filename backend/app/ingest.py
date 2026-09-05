@@ -163,6 +163,25 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
                 adp_row.rostered_pct = round(min(0.5, velocity / 20000.0), 3)
             n_players += 1
 
+        # Deactivate stale rows that the current live feed no longer projects
+        # (a player Sleeper dropped, or a leftover row from an id change). Without
+        # this, a stale duplicate carrying an older, higher projection wins the
+        # name-based dedupe and freezes an out-of-date ranking -- e.g. Saquon kept
+        # showing 313 pts / ADP 4.5 after Sleeper had revised him to 277 / 12.7.
+        n_stale = 0
+        if rows:
+            current_ids = {r.sleeper_id for r in rows}
+            stale = [
+                p
+                for p in db.query(Player).filter(Player.active).all()
+                if p.sleeper_id not in current_ids
+            ]
+            for p in stale:
+                p.active = False
+            if stale:
+                db.flush()
+            n_stale = len(stale)
+
         n_news = 0
         if with_news:
             n_news = _ingest_news(db)
@@ -214,6 +233,7 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
             "players": n_players, "news": n_news,
             "live_players": live_players, "live_news": live_news,
             "ecr_matched": n_ecr, "buzz_matched": n_buzz,
+            "stale_deactivated": n_stale,
             "reason": reason, "errors": errors,
             "elapsed_seconds": elapsed,
         }

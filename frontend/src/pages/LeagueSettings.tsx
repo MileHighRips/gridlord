@@ -3,21 +3,32 @@ import { api, LeagueSettings as LS } from '../api/client';
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPERFLEX', 'K', 'DEF'];
 
-const VINNY_LEAGUE_PRESET: LS = {
-  leagueName: '2026 League',
-  teams: 12,
+const GAGE_LEAGUE_PRESET: LS = {
+  leagueName: 'The League',
+  teams: 14,
   season: 2026,
   scoring: {
     type: 'PPR',
     rules: {
       pass_yd: 0.04,
       pass_td: 4,
-      interception: -2,
+      interception: -4,
+      bonus_pass_yd_200: 3,
+      bonus_pass_yd_250: 5,
+      bonus_pass_yd_300: 7,
       rush_yd: 0.1,
       rush_td: 6,
+      bonus_rush_yd_75: 3,
+      bonus_rush_yd_100: 5,
+      bonus_rush_yd_150: 7,
       reception: 1,
       rec_yd: 0.1,
       rec_td: 6,
+      bonus_rec_yd_75: 3,
+      bonus_rec_yd_100: 5,
+      bonus_rec_yd_150: 7,
+      return_yd: 0.1,
+      return_td: 6,
       two_pt: 2,
       fumble_lost: -2,
       off_fum_ret_td: 6,
@@ -45,8 +56,8 @@ const VINNY_LEAGUE_PRESET: LS = {
   },
   roster: {
     starters: { QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DEF: 1 },
-    bench: 7,
-    ir_slots: 1,
+    bench: 6,
+    ir_slots: 2,
   },
   waiver: {
     type: 'rolling',
@@ -57,9 +68,9 @@ const VINNY_LEAGUE_PRESET: LS = {
   },
   trades: {
     review: 'commissioner',
-    veto_votes: 5,
-    reject_days: 1,
-    deadline: '2026-12-02',
+    veto_votes: 0,
+    reject_days: 2,
+    deadline: '2026-11-28',
     allow_draft_pick_trades: false,
   },
   keepers: { count: 0, cost_increase: null },
@@ -95,11 +106,8 @@ export default function LeagueSettings() {
     })();
   }, []);
 
-  function applyPreset(name: "Gage's league" | "Vinny's league") {
-    const next =
-      name === "Gage's league"
-        ? (defaultSettings ?? s ?? VINNY_LEAGUE_PRESET)
-        : VINNY_LEAGUE_PRESET;
+  function applyPreset(name: "Gage's league") {
+    const next = defaultSettings ?? s ?? GAGE_LEAGUE_PRESET;
     setS(JSON.parse(JSON.stringify(next)));
     setStatus(`Loaded ${name} preset`);
   }
@@ -172,10 +180,7 @@ export default function LeagueSettings() {
         <h1 className="text-xl font-bold">League Settings</h1>
         <div className="flex flex-wrap gap-2">
           <button className="btn-ghost" onClick={() => applyPreset("Gage's league")}>
-            Gage's league
-          </button>
-          <button className="btn-ghost" onClick={() => applyPreset("Vinny's league")}>
-            Vinny's league
+            Load Gage's league
           </button>
           <button className="btn" onClick={save}>
             Save changes

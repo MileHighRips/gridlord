@@ -74,6 +74,17 @@ for r in (
     app.include_router(r.router)
 
 
+@app.get("/", tags=["meta"])
+def root() -> dict:
+    return {
+        "status": "ok",
+        "service": "gridiron-iq",
+        "message": "GridironIQ API is running.",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
 @app.get("/health", tags=["meta"])
 def health() -> dict:
     return {"status": "ok", "service": "gridiron-iq"}

@@ -11,12 +11,25 @@ const LOCAL_API_CANDIDATES = [
 ];
 
 const API_BASE_KEY = 'gridlord_api_base';
+const CACHE_VERSION_KEY = 'gridlord_cache_version';
+const CACHE_VERSION = '2026-09-05-v1';
 const CACHE_KEYS = {
   rankings: 'gridlord_rankings_cache',
   hiddenGems: 'gridlord_hidden_gems_cache',
   news: 'gridlord_news_cache',
   injuries: 'gridlord_injuries_cache',
 };
+
+function refreshCacheIfNeeded(): void {
+  if (typeof window === 'undefined') return;
+  const current = window.localStorage.getItem(CACHE_VERSION_KEY);
+  if (current !== CACHE_VERSION) {
+    Object.values(CACHE_KEYS).forEach((key) => window.localStorage.removeItem(key));
+    window.localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
+  }
+}
+
+refreshCacheIfNeeded();
 
 function getStoredApiBase(): string | null {
   if (typeof window === 'undefined') return null;
@@ -334,13 +347,19 @@ export const api = {
     ),
   refreshLive: () =>
     withFallback(
-      () =>
-        request<{
+      async () => {
+        const data = await request<{
           status: string;
           players: number;
           news: number;
           elapsed_seconds: number;
-        }>('/api/projections/refresh-live', { method: 'POST' }),
+        }>('/api/projections/refresh-live', { method: 'POST' });
+        if (typeof window !== 'undefined') {
+          Object.values(CACHE_KEYS).forEach((key) => window.localStorage.removeItem(key));
+          window.localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION);
+        }
+        return data;
+      },
       async () => ({ status: 'snapshot', players: 0, news: 0, elapsed_seconds: 0 }),
     ),
   hiddenGems: () =>

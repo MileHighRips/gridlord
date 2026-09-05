@@ -1,6 +1,6 @@
 // GRIDLORD service worker — keep the app shell fresh so old cached builds do not
 // leave Safari users stranded on a blank screen after a deploy.
-const CACHE = 'gridlord-v2';
+const CACHE = 'gridlord-v3';
 const SHELL = ['./', './index.html', './gridlord.svg', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

@@ -70,6 +70,8 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
     try:
         _ensure_default_league(db)
 
+        errors: list[str] = []
+
         source = (
             db.query(ProjectionSource)
             .filter(ProjectionSource.name == "Sleeper 2026")
@@ -80,9 +82,9 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
             db.add(source)
             db.flush()
 
-        rows = _safe_fetch(lambda: fetch_projection_rows(season), [])
-        last_year = _safe_fetch(lambda: fetch_last_year_points(season - 1), {})
-        trending = _safe_fetch(lambda: fetch_trending_adds(150), {})
+        rows = _safe_fetch(lambda: fetch_projection_rows(season), [], "projections", errors)
+        last_year = _safe_fetch(lambda: fetch_last_year_points(season - 1), {}, "last_year_stats", errors)
+        trending = _safe_fetch(lambda: fetch_trending_adds(150), {}, "trending_adds", errors)
 
         existing = {p.sleeper_id: p for p in db.query(Player).all() if p.sleeper_id}
         n_players = 0
@@ -174,34 +176,50 @@ def run_ingest(season: int = 2026, with_news: bool = True) -> dict:
         db.commit()
         elapsed = round(time.perf_counter() - started, 2)
 
+        live_players = n_players
+        live_news = n_news
+
         # If the live sources returned nothing (blocked network, cold host, or a
         # rate-limited upstream), fall back to the player universe already in the
         # database so the app always reports usable rankings for offline
-        # recommendations instead of a misleading zero.
+        # recommendations instead of a misleading zero -- but surface *why* the
+        # live pull came back empty so the user can see the real reason.
         status = "ok"
-        if n_players == 0:
+        reason: str | None = None
+        if live_players == 0:
             n_players = db.query(Player).filter(Player.active).count()
             n_news = db.query(NewsItem).count()
             status = "cached"
+            reason = (
+                "; ".join(errors)
+                if errors
+                else "Live sources returned no projection rows (upstream empty or rate-limited)."
+            )
 
         return {
             "status": status,
-            "players": n_players, "news": n_news, "ecr_matched": n_ecr,
-            "buzz_matched": n_buzz, "elapsed_seconds": elapsed,
+            "players": n_players, "news": n_news,
+            "live_players": live_players, "live_news": live_news,
+            "ecr_matched": n_ecr, "buzz_matched": n_buzz,
+            "reason": reason, "errors": errors,
+            "elapsed_seconds": elapsed,
         }
     finally:
         db.close()
 
 
-def _safe_fetch(fetcher, default):
+def _safe_fetch(fetcher, default, label: str = "", errors: list[str] | None = None):
     """Run an external fetch, returning a default if the upstream source fails.
 
     Live refreshes must never crash just because a scraper is rate-limited or the
-    host has no outbound network; the app falls back to the seeded universe.
+    host has no outbound network; the app falls back to the seeded universe and
+    records the failure reason so it can be reported to the user.
     """
     try:
         return fetcher()
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - report the real upstream reason
+        if errors is not None:
+            errors.append(f"{label or 'source'}: {type(exc).__name__}: {exc}".strip())
         return default
 
 

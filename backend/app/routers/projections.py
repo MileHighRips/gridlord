@@ -71,9 +71,17 @@ def refresh_live() -> dict:
     This is the "daily live data" refresh. Schedule it nightly (see
     docs/OPERATIONS.md) or trigger it from the dashboard Refresh button.
     """
+    from fastapi import HTTPException
+
     from ..ingest import run_ingest
 
-    result = run_ingest()
+    try:
+        result = run_ingest()
+    except Exception as exc:  # noqa: BLE001 - surface the real reason to the client
+        raise HTTPException(
+            status_code=503,
+            detail=f"Live refresh failed: {type(exc).__name__}: {exc}",
+        ) from exc
     return {"status": "ok", **result}
 
 

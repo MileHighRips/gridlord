@@ -17,10 +17,14 @@ export default function RefreshButton({
       if (onRefresh) {
         await onRefresh();
       }
-      const prefix = r.status === 'cached' ? '✓ cached' : '✓';
-      setMsg(`${prefix} ${r.players} players + ${r.news} news in ${r.elapsed_seconds}s`);
+      if (r.status === 'cached' || (r.live_players ?? r.players) === 0) {
+        const reason = r.reason || 'Live sources returned 0 players.';
+        setMsg(`⚠ Live pull returned 0 — ${reason} Showing ${r.players} cached.`);
+      } else {
+        setMsg(`✓ ${r.players} players + ${r.news} news in ${r.elapsed_seconds}s`);
+      }
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg(`✗ Refresh failed — ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }

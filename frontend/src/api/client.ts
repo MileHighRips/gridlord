@@ -363,6 +363,10 @@ export const api = {
         status: string;
         players: number;
         news: number;
+        live_players?: number;
+        live_news?: number;
+        reason?: string | null;
+        errors?: string[];
         elapsed_seconds: number;
       }>('/api/projections/refresh-live', { method: 'POST' });
 
@@ -373,18 +377,10 @@ export const api = {
       }
       return data;
     } catch (error) {
-      if (typeof window !== 'undefined') {
-        const cached = readCache<{
-          status: string;
-          players: number;
-          news: number;
-          elapsed_seconds: number;
-        }>(REFRESH_LIVE_CACHE_KEY);
-        if (cached) return cached;
-      }
-
       throw new Error(
-        error instanceof Error ? error.message : 'Live refresh is unavailable right now.',
+        error instanceof Error
+          ? error.message
+          : 'Live refresh failed and no reason was returned by the server.',
       );
     }
   },

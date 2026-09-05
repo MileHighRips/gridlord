@@ -73,7 +73,8 @@ export function resolveApiBase(): string {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     if (host.includes('github.io')) return PROD_API_BASE;
-    if (host.includes('localhost') || host === '127.0.0.1') return LOCAL_API_CANDIDATES[0];
+    if (host.includes('localhost') || host === '127.0.0.1')
+      return LOCAL_API_CANDIDATES[0];
   }
 
   const stored = getStoredApiBase();
@@ -113,11 +114,13 @@ async function request<T>(
 ): Promise<T> {
   const token = tokenStore.get();
   const candidates = Array.from(
-    new Set([
-      BASE,
-      ...LOCAL_API_CANDIDATES.filter((candidate) => candidate !== BASE),
-      ...(typeof window !== 'undefined' ? [getStoredApiBase() ?? ''] : []),
-    ].filter(Boolean)),
+    new Set(
+      [
+        BASE,
+        ...LOCAL_API_CANDIDATES.filter((candidate) => candidate !== BASE),
+        ...(typeof window !== 'undefined' ? [getStoredApiBase() ?? ''] : []),
+      ].filter(Boolean),
+    ),
   ) as string[];
 
   let lastError: Error | null = null;
@@ -428,11 +431,19 @@ export const api = {
   updateLeague: (id: number, settings: LeagueSettings) =>
     withFallback(
       () =>
-        request<{ id: number; name: string; settings: LeagueSettings }>(`/api/leagues/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify(settings),
-        }),
-      () => local.updateLeague(id, settings) as Promise<{ id: number; name: string; settings: LeagueSettings }>,
+        request<{ id: number; name: string; settings: LeagueSettings }>(
+          `/api/leagues/${id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify(settings),
+          },
+        ),
+      () =>
+        local.updateLeague(id, settings) as Promise<{
+          id: number;
+          name: string;
+          settings: LeagueSettings;
+        }>,
     ),
   createLeague: (settings: LeagueSettings) =>
     withFallback(
@@ -441,7 +452,12 @@ export const api = {
           method: 'POST',
           body: JSON.stringify(settings),
         }),
-      () => local.createLeague(settings) as Promise<{ id: number; name: string; settings: LeagueSettings }>,
+      () =>
+        local.createLeague(settings) as Promise<{
+          id: number;
+          name: string;
+          settings: LeagueSettings;
+        }>,
     ),
   importLeague: (provider: string, leagueSettingsJson: unknown) =>
     request('/api/leagues/import', {

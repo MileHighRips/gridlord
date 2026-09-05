@@ -139,9 +139,7 @@ export default function LeagueSettings() {
     if (!s) return;
     setStatus('Saving…');
     try {
-      let saved:
-        | { id: number; name: string; settings: LS }
-        | null = null;
+      let saved: { id: number; name: string; settings: LS } | null = null;
 
       if (leagueId) {
         saved = await api.updateLeague(leagueId, s);

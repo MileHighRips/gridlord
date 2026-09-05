@@ -30,7 +30,8 @@ export default function Rankings() {
           <h1 className="font-display text-2xl font-bold tracking-wide">Rankings</h1>
           <p className="text-muted text-sm">
             Sleeper projections + FantasyPros expert consensus, league-size VORP, with
-            boom/bust and ADP divergence.
+            boom/bust and ADP divergence. <span className="text-gold-300">Gage</span> =
+            your league (bonuses); <span className="text-muted">Std</span> = normal PPR.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -57,7 +58,8 @@ export default function Rankings() {
               <th className="p-2">Player</th>
               <th className="p-2">Pos</th>
               <th className="p-2">Tier</th>
-              <th className="p-2 text-right">Proj</th>
+              <th className="p-2 text-right">Gage</th>
+              <th className="p-2 text-right">Std</th>
               <th className="p-2 text-right">VORP</th>
               <th className="p-2 text-right">ECR</th>
               <th className="p-2 text-right">Boom</th>
@@ -69,7 +71,7 @@ export default function Rankings() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={11} className="text-muted p-4 text-center">
+                <td colSpan={12} className="text-muted p-4 text-center">
                   Loading…
                 </td>
               </tr>
@@ -87,7 +89,14 @@ export default function Rankings() {
                   <PositionBadge pos={r.position} />
                 </td>
                 <td className="stat text-muted p-2">T{r.tier}</td>
-                <td className="stat p-2 text-right">{r.proj_points.toFixed(1)}</td>
+                <td className="stat text-gold-300 p-2 text-right">
+                  {r.proj_points.toFixed(1)}
+                </td>
+                <td className="stat text-muted p-2 text-right">
+                  {r.proj_points_standard != null
+                    ? r.proj_points_standard.toFixed(1)
+                    : '—'}
+                </td>
                 <td className="stat text-gold-300 p-2 text-right">{r.vorp.toFixed(1)}</td>
                 <td className="stat text-muted p-2 text-right">
                   {r.ecr != null ? r.ecr.toFixed(0) : '—'}

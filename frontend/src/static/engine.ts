@@ -105,7 +105,11 @@ function w(scoring: Record<string, number>, key: string, dflt: number): number {
   return scoring[key] ?? dflt;
 }
 
-function scoreOffense(s: Record<string, number>, sc: Record<string, number>): number {
+function scoreOffense(
+  s: Record<string, number>,
+  sc: Record<string, number>,
+  noBonus = false,
+): number {
   let base = 0;
   base += (s.pass_yd || 0) * w(sc, 'pass_yd', 0.04);
   base += (s.pass_td || 0) * w(sc, 'pass_td', 4);
@@ -118,6 +122,7 @@ function scoreOffense(s: Record<string, number>, sc: Record<string, number>): nu
   base += (s.fum_lost || 0) * w(sc, 'fumble_lost', -2);
   const twoPt = (s.pass_2pt || 0) + (s.rush_2pt || 0) + (s.rec_2pt || 0);
   base += twoPt * w(sc, 'two_pt', 2);
+  if (noBonus) return base;
   const gp = s.gp || 17;
   const hasBonus = Object.keys(sc).some((k) => k.startsWith('bonus_'));
   const passT = bonusTiers(sc, 'bonus_pass_yd_');
@@ -170,10 +175,14 @@ function scoreDefense(s: Record<string, number>): number {
   return pts;
 }
 
-function scorePlayer(p: StaticPlayer, sc: Record<string, number>): number {
+function scorePlayer(
+  p: StaticPlayer,
+  sc: Record<string, number>,
+  noBonus = false,
+): number {
   if (p.position === 'K') return scoreKicker(p.raw_stats);
   if (p.position === 'DEF') return scoreDefense(p.raw_stats);
-  return scoreOffense(p.raw_stats, sc);
+  return scoreOffense(p.raw_stats, sc, noBonus);
 }
 
 // --- league-size VORP context (mirror engine/league_context) ---------------
@@ -228,6 +237,7 @@ export function computeRankings(
   type E = {
     p: StaticPlayer;
     proj: number;
+    stdProj: number;
     std: number;
     vorp: number;
     posRank: number;
@@ -241,11 +251,13 @@ export function computeRankings(
     const base = scorePlayer(p, sc);
     const factor = p.play_probability ?? 1;
     const proj = Math.max(0, base * factor);
+    const stdProj = Math.max(0, scorePlayer(p, sc, true) * factor);
     const std = base * (POS_CV[p.position] ?? 0.3);
     const bb = boomBust(proj, std, p.position, p.ecr ? 3 : null);
     return {
       p,
       proj,
+      stdProj,
       std,
       vorp: 0,
       posRank: 0,
@@ -301,6 +313,7 @@ export function computeRankings(
       position: e.p.position,
       team: e.p.team,
       proj_points: Math.round(e.proj * 10) / 10,
+      proj_points_standard: Math.round(e.stdProj * 10) / 10,
       vorp: Math.round(e.vorp * 10) / 10,
       positional_rank: e.posRank,
       adp: e.p.adp,

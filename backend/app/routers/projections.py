@@ -32,7 +32,8 @@ def rankings(
     return [
         RankingRow(
             rank=r.rank, player_id=r.player_id, name=r.name, position=r.position,
-            team=r.team, proj_points=r.proj_points, vorp=r.vorp,
+            team=r.team, proj_points=r.proj_points,
+            proj_points_standard=r.proj_points_standard, vorp=r.vorp,
             positional_rank=r.positional_rank, adp=r.adp, adp_delta=r.adp_delta,
             volatility=r.volatility, upside_score=r.upside_score, tier=r.tier,
             drivers=r.drivers, ecr=r.ecr, ecr_delta=r.ecr_delta,

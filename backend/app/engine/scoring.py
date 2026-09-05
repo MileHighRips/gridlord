@@ -67,6 +67,14 @@ DEFAULT_SCORING: dict[str, float] = {
     "xp_returned": 2.0,
 }
 
+# Standard scoring = the league's per-stat weights **without** any yardage
+# bonuses. Used to show a "normal" projection next to the bonus-boosted one so
+# you can see how much Gage's league bonuses inflate each player.
+STANDARD_SCORING: dict[str, float] = {
+    k: v for k, v in DEFAULT_SCORING.items() if not k.startswith("bonus_")
+}
+
+
 # DST points-allowed tiers: (inclusive_max_points_allowed, fantasy_points).
 DEFAULT_POINTS_ALLOWED_TIERS: list[tuple[int, float]] = [
     (0, 10.0),

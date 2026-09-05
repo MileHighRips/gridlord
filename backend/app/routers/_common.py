@@ -1,13 +1,41 @@
 """Shared helpers for routers: load ranked players from the DB."""
 from __future__ import annotations
 
+import json
 import re
 
 from sqlalchemy.orm import Session
 
+from ..data_sources import score_defense, score_kicker, score_offense
 from ..engine.league_context import build_league_context, default_starters_from_slots
 from ..engine.rankings import PlayerProjection, RankedPlayer, rank_players
+from ..engine.scoring import STANDARD_SCORING
 from ..models import ADPEntry, League, Player, Projection
+
+
+def _standard_points(p: Player, pr: Projection) -> float:
+    """Score a player's raw stat line with standard scoring (no yardage bonuses).
+
+    Mirrors how ``mean_points`` is computed at ingest (base points times the
+    availability factor) but strips the league's bonus tiers, so the UI can show
+    a "normal" projection beside the bonus-boosted league number.
+    """
+    if not pr.raw_stats_json:
+        return round(pr.mean_points, 1)
+    try:
+        stats = json.loads(pr.raw_stats_json)
+    except (ValueError, TypeError):
+        return round(pr.mean_points, 1)
+
+    if p.position == "K":
+        base = score_kicker(stats)
+    elif p.position == "DEF":
+        base = score_defense(stats)
+    else:
+        base = score_offense(stats, STANDARD_SCORING)
+
+    factor = p.play_probability if p.play_probability is not None else 1.0
+    return round(base * factor, 1)
 
 
 def _norm_name(name: str) -> str:
@@ -61,6 +89,7 @@ def _to_projection(p: Player, pr: Projection, adp: dict) -> PlayerProjection:
         team=p.team,
         proj_points=pr.mean_points,
         std_points=pr.std_points,
+        proj_points_standard=_standard_points(p, pr),
         adp=adp[p.id].adp if p.id in adp and adp[p.id].adp < 990 else None,
         last_year_points=p.last_year_points,
         injury_status=p.injury_status,

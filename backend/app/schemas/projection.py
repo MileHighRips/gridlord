@@ -23,6 +23,7 @@ class RankingRow(BaseModel):
     position: str
     team: str | None = None
     proj_points: float
+    proj_points_standard: float = 0.0  # league scoring minus yardage bonuses
     vorp: float
     positional_rank: int
     adp: float | None = None

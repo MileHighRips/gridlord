@@ -37,6 +37,7 @@ class PlayerProjection:
     team: str | None
     proj_points: float
     std_points: float
+    proj_points_standard: float = 0.0  # same scoring minus yardage bonuses
     adp: float | None = None
     last_year_points: float | None = None
     injury_status: str | None = None
@@ -60,6 +61,7 @@ class RankedPlayer:
     position: str
     team: str | None
     proj_points: float
+    proj_points_standard: float
     vorp: float
     positional_rank: int
     adp: float | None
@@ -198,6 +200,7 @@ def rank_players(
                 position=p.position,
                 team=p.team,
                 proj_points=round(p.proj_points, 1),
+                proj_points_standard=round(p.proj_points_standard, 1),
                 vorp=e["vorp"],
                 positional_rank=e["positional_rank"],
                 adp=p.adp,

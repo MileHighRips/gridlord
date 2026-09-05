@@ -212,6 +212,7 @@ export interface RankingRow {
   position: string;
   team: string | null;
   proj_points: number;
+  proj_points_standard?: number;
   vorp: number;
   positional_rank: number;
   adp: number | null;
